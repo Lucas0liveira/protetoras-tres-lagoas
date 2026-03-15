@@ -1,0 +1,804 @@
+import { useState } from 'react'
+import { useForm, useFieldArray } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import { Plus, Trash2, Loader2, AlertTriangle } from 'lucide-react'
+
+import { supabase } from '@/lib/supabase'
+import type {
+  Animal, AnimalRescue, SanitaryProcedure, MedicalRecord,
+  AnimalCustody, Custodian, Clinic,
+} from '@/types/database'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+
+// ─── Shared label maps ────────────────────────────────────────────────────────
+
+export const SANITARY_LABELS: Record<string, string> = {
+  castracao:             'Castração',
+  vacina_v8:             'Vacina V8',
+  vacina_v10:            'Vacina V10',
+  vacina_antirabica:     'Vacina Antirrábica',
+  vermifugacao:          'Vermifugação',
+  bravecto:              'Bravecto',
+  coleira_leishmaniose:  'Coleira Leishmaniose',
+  transfusao_sanguinea:  'Transfusão Sanguínea',
+  outro:                 'Outro',
+}
+
+export const VISIT_LABELS: Record<string, string> = {
+  rotina: 'Rotina', emergencia: 'Emergência',
+  retorno: 'Retorno', cirurgia: 'Cirurgia', outro: 'Outro',
+}
+
+export const EXAM_RESULT_LABELS: Record<string, string> = {
+  aguardando: 'Aguardando', reagente: 'Reagente',
+  nao_reagente: 'Não reagente', inconclusivo: 'Inconclusivo',
+}
+
+export const CUSTODY_TYPE_LABELS: Record<string, string> = {
+  lar_temporario: 'Lar temporário', adocao: 'Adoção',
+}
+
+export const CUSTODY_END_LABELS: Record<string, string> = {
+  devolucao_incompatibilidade: 'Devolução – Incompatibilidade',
+  devolucao_mudanca:           'Devolução – Mudança',
+  devolucao_alergia:           'Devolução – Alergia',
+  falecimento_responsavel:     'Falecimento do responsável',
+  transferencia:               'Transferência',
+  obito_animal:                'Óbito do animal',
+  outro:                       'Outro',
+}
+
+// ─── Helper: derive animal status from custody ────────────────────────────────
+
+export async function syncAnimalStatus(
+  animalId: string,
+  custodyType: 'lar_temporario' | 'adocao' | null,
+) {
+  const status =
+    custodyType === 'adocao'        ? 'adotado'       :
+    custodyType === 'lar_temporario' ? 'lar_temporario' :
+    'disponivel'
+  await supabase.from('animals').update({ status }).eq('id', animalId)
+  return status
+}
+
+// ─── EditAnimalModal ──────────────────────────────────────────────────────────
+
+const editAnimalSchema = z.object({
+  name:             z.string().min(1, 'Obrigatório'),
+  species:          z.enum(['canino', 'felino', 'outro']),
+  sex:              z.enum(['macho', 'femea', 'indefinido']),
+  breed:            z.string().optional(),
+  coat_description: z.string().optional(),
+  birth_estimate:   z.string().optional(),
+  notes:            z.string().optional(),
+  status:           z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito']),
+})
+type EditAnimalValues = z.infer<typeof editAnimalSchema>
+
+export function EditAnimalModal({
+  open, onClose, animal, onUpdated,
+}: { open: boolean; onClose: () => void; animal: Animal; onUpdated: (a: Animal) => void }) {
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<EditAnimalValues>({
+    resolver: zodResolver(editAnimalSchema),
+    defaultValues: {
+      name: animal.name, species: animal.species, sex: animal.sex,
+      breed: animal.breed ?? '', coat_description: animal.coat_description ?? '',
+      birth_estimate: animal.birth_estimate ?? '', notes: animal.notes ?? '',
+      status: animal.status,
+    },
+  })
+
+  async function onSubmit(values: EditAnimalValues) {
+    const { data, error } = await supabase.from('animals')
+      .update({ ...values, breed: values.breed || null, coat_description: values.coat_description || null,
+        birth_estimate: values.birth_estimate || null, notes: values.notes || null })
+      .eq('id', animal.id).select().single()
+    if (error) { toast.error('Erro: ' + error.message); return }
+    toast.success('Animal atualizado!')
+    onUpdated(data as Animal); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Editar animal</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Nome *</Label><Input {...register('name')} />
+              {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Espécie *</Label>
+              <Select defaultValue={animal.species} onValueChange={(v) => setValue('species', v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="canino">Canino</SelectItem>
+                  <SelectItem value="felino">Felino</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Sexo</Label>
+              <Select defaultValue={animal.sex} onValueChange={(v) => setValue('sex', v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="macho">Macho</SelectItem>
+                  <SelectItem value="femea">Fêmea</SelectItem>
+                  <SelectItem value="indefinido">Indefinido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>Raça</Label><Input placeholder="SRD" {...register('breed')} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><Label>Pelagem</Label><Input {...register('coat_description')} /></div>
+            <div className="space-y-1.5"><Label>Nascimento estimado</Label><Input type="date" {...register('birth_estimate')} /></div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select defaultValue={animal.status} onValueChange={(v) => setValue('status', v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pendente_resgate">Pendente resgate</SelectItem>
+                <SelectItem value="resgatado">Resgatado</SelectItem>
+                <SelectItem value="lar_temporario">Lar temporário</SelectItem>
+                <SelectItem value="disponivel">Disponível</SelectItem>
+                <SelectItem value="adotado">Adotado</SelectItem>
+                <SelectItem value="obito">Óbito</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={3} {...register('notes')} /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── EditRescueModal ──────────────────────────────────────────────────────────
+
+const rescueSchema = z.object({
+  rescue_date: z.string().min(1, 'Obrigatório'),
+  rescue_location: z.string().optional(),
+  rescued_by: z.string().optional(),
+  rescue_notes: z.string().optional(),
+})
+type RescueValues = z.infer<typeof rescueSchema>
+
+export function EditRescueModal({
+  open, onClose, animalId, rescue, onSaved,
+}: { open: boolean; onClose: () => void; animalId: string; rescue: AnimalRescue | null; onSaved: (r: AnimalRescue) => void }) {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RescueValues>({
+    resolver: zodResolver(rescueSchema),
+    defaultValues: {
+      rescue_date: rescue?.rescue_date ?? '', rescue_location: rescue?.rescue_location ?? '',
+      rescued_by: rescue?.rescued_by ?? '', rescue_notes: rescue?.rescue_notes ?? '',
+    },
+  })
+
+  async function onSubmit(values: RescueValues) {
+    const payload = { animal_id: animalId, rescue_date: values.rescue_date,
+      rescue_location: values.rescue_location || null, rescued_by: values.rescued_by || null,
+      rescue_notes: values.rescue_notes || null }
+    const { data, error } = rescue
+      ? await supabase.from('animal_rescues').update(payload).eq('id', rescue.id).select().single()
+      : await supabase.from('animal_rescues').insert(payload).select().single()
+    if (error) { toast.error('Erro: ' + error.message); return }
+    toast.success('Resgate salvo!')
+    onSaved(data as AnimalRescue); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>{rescue ? 'Editar resgate' : 'Registrar resgate'}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Data do resgate *</Label><Input type="date" {...register('rescue_date')} />
+              {errors.rescue_date && <p className="text-red-500 text-xs">{errors.rescue_date.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Resgatado por</Label><Input {...register('rescued_by')} /></div>
+          </div>
+          <div className="space-y-1.5"><Label>Local do resgate</Label><Input {...register('rescue_location')} /></div>
+          <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={3} {...register('rescue_notes')} /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── AddSanitaryModal ─────────────────────────────────────────────────────────
+
+const sanitarySchema = z.object({
+  procedure_type: z.string().min(1, 'Obrigatório'),
+  performed_date: z.string().min(1, 'Obrigatório'),
+  next_due_date: z.string().optional(),
+  description: z.string().optional(),
+})
+type SanitaryValues = z.infer<typeof sanitarySchema>
+
+export function AddSanitaryModal({
+  open, onClose, animalId, onAdded,
+}: { open: boolean; onClose: () => void; animalId: string; onAdded: (p: SanitaryProcedure) => void }) {
+  const { register, handleSubmit, setValue, reset, formState: { errors, isSubmitting } } = useForm<SanitaryValues>({
+    resolver: zodResolver(sanitarySchema),
+  })
+
+  async function onSubmit(values: SanitaryValues) {
+    const { data, error } = await supabase.from('sanitary_procedures').insert({
+      animal_id: animalId, procedure_type: values.procedure_type,
+      performed_date: values.performed_date, next_due_date: values.next_due_date || null,
+      description: values.description || null,
+    }).select().single()
+    if (error) { toast.error('Erro: ' + error.message); return }
+    toast.success('Procedimento registrado!')
+    onAdded(data as SanitaryProcedure); reset(); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose() } }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Registrar procedimento sanitário</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Tipo *</Label>
+            <Select onValueChange={(v) => setValue('procedure_type', v)}>
+              <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(SANITARY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.procedure_type && <p className="text-red-500 text-xs">{errors.procedure_type.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Realizado em *</Label><Input type="date" {...register('performed_date')} />
+              {errors.performed_date && <p className="text-red-500 text-xs">{errors.performed_date.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Próxima aplicação</Label><Input type="date" {...register('next_due_date')} /></div>
+          </div>
+          <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('description')} /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Registrar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── AddMedicalRecordModal ────────────────────────────────────────────────────
+
+const examRowSchema = z.object({
+  exam_name: z.string().min(1, 'Obrigatório'), result: z.string(),
+  result_detail: z.string().optional(), exam_date: z.string().optional(),
+})
+const medicationRowSchema = z.object({
+  name: z.string().min(1, 'Obrigatório'), dosage: z.string().optional(),
+  frequency: z.string().optional(), duration_days: z.string().optional(),
+  start_date: z.string().optional(), notes: z.string().optional(),
+})
+const medicalSchema = z.object({
+  visit_date: z.string().min(1, 'Obrigatório'), visit_type: z.string().min(1, 'Obrigatório'),
+  vet_name: z.string().optional(), clinic_id: z.string().optional(),
+  description: z.string().min(1, 'Obrigatório'), follow_up_notes: z.string().optional(),
+  follow_up_date: z.string().optional(), exams: z.array(examRowSchema), medications: z.array(medicationRowSchema),
+  new_clinic_name: z.string().optional(), new_clinic_phone: z.string().optional(),
+  new_clinic_address: z.string().optional(), new_clinic_vet: z.string().optional(),
+})
+type MedicalValues = z.infer<typeof medicalSchema>
+
+export function AddMedicalRecordModal({
+  open, onClose, animalId, clinics, onAdded, onClinicCreated,
+}: {
+  open: boolean; onClose: () => void; animalId: string
+  clinics: Clinic[]; onAdded: (r: MedicalRecord) => void; onClinicCreated: (c: Clinic) => void
+}) {
+  const [showNewClinic, setShowNewClinic] = useState(false)
+  const { register, handleSubmit, setValue, control, reset, formState: { errors, isSubmitting } } = useForm<MedicalValues>({
+    resolver: zodResolver(medicalSchema),
+    defaultValues: { exams: [], medications: [] },
+  })
+  const { fields: examFields, append: addExam, remove: removeExam } = useFieldArray({ control, name: 'exams' })
+  const { fields: medFields,  append: addMed,  remove: removeMed  } = useFieldArray({ control, name: 'medications' })
+
+  async function onSubmit(values: MedicalValues) {
+    let finalClinicId: string | null = (!values.clinic_id || values.clinic_id === 'none' || values.clinic_id === 'new') ? null : values.clinic_id
+    if (values.clinic_id === 'new' && values.new_clinic_name) {
+      const { data: clinic, error: cErr } = await supabase.from('clinics').insert({
+        name: values.new_clinic_name, phone: values.new_clinic_phone || null,
+        address: values.new_clinic_address || null, contact_vet: values.new_clinic_vet || null,
+      }).select().single()
+      if (cErr) { toast.error('Erro ao criar clínica: ' + cErr.message); return }
+      finalClinicId = clinic.id; onClinicCreated(clinic as Clinic)
+    }
+    const { data: record, error: rErr } = await supabase.from('medical_records').insert({
+      animal_id: animalId, clinic_id: finalClinicId, visit_date: values.visit_date,
+      visit_type: values.visit_type, vet_name: values.vet_name || null,
+      description: values.description, follow_up_notes: values.follow_up_notes || null,
+      follow_up_date: values.follow_up_date || null,
+    }).select('*, clinic:clinics(id,name)').single()
+    if (rErr) { toast.error('Erro: ' + rErr.message); return }
+    let insertedExams: any[] = [], insertedMeds: any[] = []
+    if (values.exams.length > 0) {
+      const { data: ed } = await supabase.from('exams').insert(values.exams.map(e => ({
+        animal_id: animalId, medical_record_id: record.id, exam_name: e.exam_name,
+        result: e.result || 'aguardando', result_detail: e.result_detail || null, exam_date: e.exam_date || null,
+      }))).select()
+      insertedExams = ed ?? []
+    }
+    if (values.medications.length > 0) {
+      const { data: md } = await supabase.from('medications').insert(values.medications.map(m => ({
+        animal_id: animalId, medical_record_id: record.id, name: m.name, dosage: m.dosage || null,
+        frequency: m.frequency || null, duration_days: m.duration_days ? parseInt(m.duration_days) : null,
+        start_date: m.start_date || null, notes: m.notes || null,
+      }))).select()
+      insertedMeds = md ?? []
+    }
+    toast.success('Atendimento registrado!')
+    onAdded({ ...record, exams: insertedExams, medications: insertedMeds } as MedicalRecord)
+    reset(); setShowNewClinic(false); onClose()
+  }
+
+  function handleClose() { reset(); setShowNewClinic(false); onClose() }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Novo atendimento médico</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 py-2">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label>Data *</Label><Input type="date" {...register('visit_date')} />
+              {errors.visit_date && <p className="text-red-500 text-xs">{errors.visit_date.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo *</Label>
+              <Select onValueChange={(v) => setValue('visit_type', v)}>
+                <SelectTrigger><SelectValue placeholder="Tipo..." /></SelectTrigger>
+                <SelectContent>{Object.entries(VISIT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+              {errors.visit_type && <p className="text-red-500 text-xs">{errors.visit_type.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Veterinário</Label><Input placeholder="Nome" {...register('vet_name')} /></div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Clínica</Label>
+            <Select onValueChange={(v) => { setValue('clinic_id', v); setShowNewClinic(v === 'new') }}>
+              <SelectTrigger><SelectValue placeholder="Selecionar clínica..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem clínica</SelectItem>
+                {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                <SelectItem value="new"><span className="flex items-center gap-2 text-emerald-600"><Plus size={13} />Nova clínica</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {showNewClinic && (
+            <div className="border border-emerald-200 rounded-lg p-4 space-y-3 bg-emerald-50/40">
+              <p className="text-sm font-medium text-stone-700">Nova clínica</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label>Nome *</Label><Input {...register('new_clinic_name')} /></div>
+                <div className="space-y-1.5"><Label>Telefone</Label><Input {...register('new_clinic_phone')} /></div>
+                <div className="space-y-1.5"><Label>Veterinário responsável</Label><Input {...register('new_clinic_vet')} /></div>
+                <div className="space-y-1.5"><Label>Endereço</Label><Input {...register('new_clinic_address')} /></div>
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Descrição / Motivo *</Label><Textarea rows={2} {...register('description')} />
+            {errors.description && <p className="text-red-500 text-xs">{errors.description.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><Label>Retorno em</Label><Input type="date" {...register('follow_up_date')} /></div>
+            <div className="space-y-1.5"><Label>Obs. de retorno</Label><Input {...register('follow_up_notes')} /></div>
+          </div>
+          {/* Exams */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Exames</Label>
+              <Button type="button" variant="outline" size="sm"
+                onClick={() => addExam({ exam_name: '', result: 'aguardando', result_detail: '', exam_date: '' })}>
+                <Plus size={13} className="mr-1" />Adicionar exame
+              </Button>
+            </div>
+            {examFields.map((field, i) => (
+              <div key={field.id} className="border border-stone-100 rounded-lg p-3 bg-stone-50 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Nome do exame *</Label>
+                    <Input className="h-8 text-sm" {...register(`exams.${i}.exam_name`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Resultado</Label>
+                    <Select defaultValue="aguardando" onValueChange={(v) => setValue(`exams.${i}.result`, v)}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(EXAM_RESULT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Detalhe do resultado</Label>
+                    <Input className="h-8 text-sm" placeholder="Ex: valor, observação" {...register(`exams.${i}.result_detail`)} /></div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1"><Label className="text-xs">Data do exame</Label>
+                      <Input type="date" className="h-8 text-sm" {...register(`exams.${i}.exam_date`)} /></div>
+                    <Button type="button" variant="ghost" size="icon"
+                      className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0"
+                      onClick={() => removeExam(i)}><Trash2 size={13} /></Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Medications */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Medicamentos</Label>
+              <Button type="button" variant="outline" size="sm"
+                onClick={() => addMed({ name: '', dosage: '', frequency: '', duration_days: '', start_date: '', notes: '' })}>
+                <Plus size={13} className="mr-1" />Adicionar medicamento
+              </Button>
+            </div>
+            {medFields.map((field, i) => (
+              <div key={field.id} className="border border-stone-100 rounded-lg p-3 bg-stone-50 space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Nome *</Label><Input className="h-8 text-sm" {...register(`medications.${i}.name`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Dose</Label><Input className="h-8 text-sm" placeholder="Ex: 10mg" {...register(`medications.${i}.dosage`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Frequência</Label><Input className="h-8 text-sm" placeholder="Ex: 2x/dia" {...register(`medications.${i}.frequency`)} /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Duração (dias)</Label><Input type="number" className="h-8 text-sm" {...register(`medications.${i}.duration_days`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Início</Label><Input type="date" className="h-8 text-sm" {...register(`medications.${i}.start_date`)} /></div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1"><Label className="text-xs">Obs.</Label><Input className="h-8 text-sm" {...register(`medications.${i}.notes`)} /></div>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0" onClick={() => removeMed(i)}><Trash2 size={13} /></Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Registrar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── AddCustodyModal ──────────────────────────────────────────────────────────
+
+const custodySchema = z.object({
+  custody_type: z.enum(['lar_temporario', 'adocao']),
+  custodian_id: z.string().min(1, 'Obrigatório'),
+  started_at: z.string().min(1, 'Obrigatório'),
+  termo_date: z.string().optional(),
+  new_full_name: z.string().optional(), new_phone: z.string().optional(),
+  new_email: z.string().optional(), new_cpf: z.string().optional(),
+  new_address_street: z.string().optional(), new_address_city: z.string().optional(),
+  new_address_neighborhood: z.string().optional(), new_notes: z.string().optional(),
+})
+type CustodyValues = z.infer<typeof custodySchema>
+
+export function AddCustodyModal({
+  open, onClose, animalId, activeCustodyId, custodians, onAdded, onCustodianCreated,
+}: {
+  open: boolean; onClose: () => void; animalId: string; activeCustodyId: string | null
+  custodians: Custodian[]; onAdded: (c: AnimalCustody, newAnimalStatus: string) => void
+  onCustodianCreated: (c: Custodian) => void
+}) {
+  const [showNewCustodian, setShowNewCustodian] = useState(false)
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<CustodyValues>({
+    resolver: zodResolver(custodySchema),
+    defaultValues: { custody_type: 'lar_temporario' },
+  })
+  const custodyType = watch('custody_type')
+
+  async function onSubmit(values: CustodyValues) {
+    let finalCustodianId: string | null = values.custodian_id === 'new' ? null : values.custodian_id
+    if (values.custodian_id === 'new') {
+      if (!values.new_full_name || !values.new_phone) { toast.error('Nome e telefone são obrigatórios'); return }
+      const { data: cust, error: cErr } = await supabase.from('custodians').insert({
+        full_name: values.new_full_name, phone: values.new_phone, email: values.new_email || null,
+        cpf: values.new_cpf || null, address_street: values.new_address_street || null,
+        address_city: values.new_address_city || null, address_neighborhood: values.new_address_neighborhood || null,
+        notes: values.new_notes || null,
+      }).select().single()
+      if (cErr) { toast.error('Erro: ' + cErr.message); return }
+      finalCustodianId = cust.id; onCustodianCreated(cust as Custodian)
+    }
+    // Close active custody
+    if (activeCustodyId) {
+      await supabase.from('animal_custody').update({ is_active: false, ended_at: values.started_at }).eq('id', activeCustodyId)
+    }
+    const { data, error } = await supabase.from('animal_custody').insert({
+      animal_id: animalId, custodian_id: finalCustodianId, custody_type: values.custody_type,
+      started_at: values.started_at, termo_date: values.termo_date || null, is_active: true,
+    }).select('*, custodian:custodians(id,full_name,phone,email,cpf,address_street,address_neighborhood,address_city,notes)').single()
+    if (error) { toast.error('Erro: ' + error.message); return }
+    // Sync animal status
+    const newStatus = await syncAnimalStatus(animalId, values.custody_type)
+    toast.success('Custódia registrada!')
+    onAdded(data as AnimalCustody, newStatus)
+    reset(); setShowNewCustodian(false); onClose()
+  }
+
+  function handleClose() { reset(); setShowNewCustodian(false); onClose() }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Registrar custódia</DialogTitle></DialogHeader>
+        {activeCustodyId && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
+            A custódia atual será encerrada automaticamente na data de início informada.
+          </div>
+        )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Tipo *</Label>
+            <Select defaultValue="lar_temporario" onValueChange={(v) => setValue('custody_type', v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lar_temporario">Lar temporário</SelectItem>
+                <SelectItem value="adocao">Adoção</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{custodyType === 'adocao' ? 'Adotante' : 'Responsável'} *</Label>
+            <Select onValueChange={(v) => { setValue('custodian_id', v); setShowNewCustodian(v === 'new') }}>
+              <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+              <SelectContent>
+                {custodians.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name} — {c.phone}</SelectItem>)}
+                <SelectItem value="new"><span className="flex items-center gap-2 text-emerald-600"><Plus size={13} />Cadastrar novo</span></SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.custodian_id && <p className="text-red-500 text-xs">{errors.custodian_id.message}</p>}
+          </div>
+          {showNewCustodian && (
+            <div className="border border-emerald-200 rounded-lg p-4 space-y-3 bg-emerald-50/40">
+              <p className="text-sm font-medium text-stone-700">Novo responsável</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label>Nome completo *</Label><Input {...register('new_full_name')} /></div>
+                <div className="space-y-1.5"><Label>Telefone *</Label><Input {...register('new_phone')} /></div>
+                <div className="space-y-1.5"><Label>Email</Label><Input type="email" {...register('new_email')} /></div>
+                <div className="space-y-1.5"><Label>CPF</Label><Input {...register('new_cpf')} /></div>
+                <div className="space-y-1.5 col-span-2"><Label>Rua</Label><Input {...register('new_address_street')} /></div>
+                <div className="space-y-1.5"><Label>Bairro</Label><Input {...register('new_address_neighborhood')} /></div>
+                <div className="space-y-1.5"><Label>Cidade</Label><Input {...register('new_address_city')} /></div>
+              </div>
+              <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('new_notes')} /></div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Início *</Label><Input type="date" {...register('started_at')} />
+              {errors.started_at && <p className="text-red-500 text-xs">{errors.started_at.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Data do termo</Label><Input type="date" {...register('termo_date')} /></div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Registrar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── EditCustodyModal ─────────────────────────────────────────────────────────
+
+const editCustodySchema = z.object({
+  custody_type: z.enum(['lar_temporario', 'adocao']),
+  started_at:   z.string().min(1, 'Obrigatório'),
+  termo_date:   z.string().optional(),
+})
+type EditCustodyValues = z.infer<typeof editCustodySchema>
+
+export function EditCustodyModal({
+  open, onClose, custody, animalId, onUpdated,
+}: {
+  open: boolean; onClose: () => void
+  custody: AnimalCustody; animalId: string
+  onUpdated: (c: AnimalCustody) => void
+}) {
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<EditCustodyValues>({
+    resolver: zodResolver(editCustodySchema),
+    defaultValues: {
+      custody_type: custody.custody_type,
+      started_at:   custody.started_at,
+      termo_date:   custody.termo_date ?? '',
+    },
+  })
+
+  async function onSubmit(values: EditCustodyValues) {
+    const { data, error } = await supabase.from('animal_custody')
+      .update({ custody_type: values.custody_type, started_at: values.started_at, termo_date: values.termo_date || null })
+      .eq('id', custody.id)
+      .select('*, custodian:custodians(id,full_name,phone,email,cpf,address_street,address_neighborhood,address_city,notes)')
+      .single()
+    if (error) { toast.error('Erro: ' + error.message); return }
+    // If active, also sync animal status
+    if (custody.is_active) await syncAnimalStatus(animalId, values.custody_type)
+    toast.success('Custódia atualizada!')
+    onUpdated(data as AnimalCustody); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Editar custódia</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Tipo</Label>
+            <Select defaultValue={custody.custody_type} onValueChange={(v) => setValue('custody_type', v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lar_temporario">Lar temporário</SelectItem>
+                <SelectItem value="adocao">Adoção</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Início *</Label><Input type="date" {...register('started_at')} />
+              {errors.started_at && <p className="text-red-500 text-xs">{errors.started_at.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Data do termo</Label><Input type="date" {...register('termo_date')} /></div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── DeleteCustodyModal ───────────────────────────────────────────────────────
+
+export function DeleteCustodyModal({
+  open, onClose, custody, animalId, onDeleted,
+}: {
+  open: boolean; onClose: () => void
+  custody: AnimalCustody; animalId: string
+  onDeleted: (id: string, newAnimalStatus: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+
+  async function handleDelete() {
+    setLoading(true)
+    const { error } = await supabase.from('animal_custody').delete().eq('id', custody.id)
+    if (error) { toast.error('Erro: ' + error.message); setLoading(false); return }
+    // If was active, revert animal to disponivel
+    let newStatus = 'disponivel'
+    if (custody.is_active) newStatus = await syncAnimalStatus(animalId, null)
+    toast.success('Custódia removida.')
+    onDeleted(custody.id, newStatus)
+    setLoading(false); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Remover custódia</DialogTitle></DialogHeader>
+        <div className="py-2 space-y-3">
+          <div className="flex gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">
+              Esta ação é permanente. A custódia será deletada do histórico.
+              {custody.is_active && ' O status do animal voltará para Disponível.'}
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete} disabled={loading}>
+            {loading && <Loader2 size={14} className="animate-spin mr-2" />}Remover
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── EndCustodyModal ──────────────────────────────────────────────────────────
+
+const endCustodySchema = z.object({
+  ended_at:   z.string().min(1, 'Obrigatório'),
+  end_reason: z.string().min(1, 'Obrigatório'),
+  end_notes:  z.string().optional(),
+})
+type EndCustodyValues = z.infer<typeof endCustodySchema>
+
+export function EndCustodyModal({
+  open, onClose, custody, animalId, onEnded,
+}: {
+  open: boolean; onClose: () => void; custody: AnimalCustody; animalId: string
+  onEnded: (id: string, ended_at: string, end_reason: string, end_notes: string | null, newAnimalStatus: string) => void
+}) {
+  const { register, handleSubmit, setValue, reset, formState: { errors, isSubmitting } } = useForm<EndCustodyValues>({
+    resolver: zodResolver(endCustodySchema),
+  })
+
+  async function onSubmit(values: EndCustodyValues) {
+    const { error } = await supabase.from('animal_custody').update({
+      is_active: false, ended_at: values.ended_at,
+      end_reason: values.end_reason, end_notes: values.end_notes || null,
+    }).eq('id', custody.id)
+    if (error) { toast.error('Erro: ' + error.message); return }
+    const newStatus = await syncAnimalStatus(animalId, null)
+    toast.success('Custódia encerrada.')
+    onEnded(custody.id, values.ended_at, values.end_reason, values.end_notes || null, newStatus)
+    reset(); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose() } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Encerrar custódia</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Data de encerramento *</Label><Input type="date" {...register('ended_at')} />
+            {errors.ended_at && <p className="text-red-500 text-xs">{errors.ended_at.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Motivo *</Label>
+            <Select onValueChange={(v) => setValue('end_reason', v)}>
+              <SelectTrigger><SelectValue placeholder="Selecionar motivo..." /></SelectTrigger>
+              <SelectContent>{Object.entries(CUSTODY_END_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+            </Select>
+            {errors.end_reason && <p className="text-red-500 text-xs">{errors.end_reason.message}</p>}
+          </div>
+          <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('end_notes')} /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
+            <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Encerrar custódia
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
