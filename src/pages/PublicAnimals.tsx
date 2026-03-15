@@ -1,50 +1,357 @@
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { PawPrint, ArrowLeft } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import {
+  PawPrint, Search, ArrowLeft, Heart, SortAsc, ChevronDown, ChevronUp,
+  ChevronsUpDown, Loader2, PartyPopper,
+} from 'lucide-react'
 
-const MOCK = [
-  { id: '1', name: 'Diana', species: 'Canina', status: 'Disponível', breed: 'SRD', sex: 'Fêmea' },
-  { id: '2', name: 'Mel', species: 'Felina', status: 'Lar temporário', breed: 'SRD', sex: 'Fêmea' },
-  { id: '3', name: 'Thor', species: 'Canino', status: 'Disponível', breed: 'SRD', sex: 'Macho' },
-]
+import { supabase } from '@/lib/supabase'
+import type { Animal } from '@/types/database'
+import { STATUS_ORDER } from '@/types/database'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PUBLIC_STATUSES = ['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado']
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  pendente_resgate: { label: 'Aguardando resgate', color: 'text-red-600',     bg: 'bg-red-50',     border: 'border-red-200' },
+  resgatado:        { label: 'Recém resgatado',    color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200' },
+  lar_temporario:   { label: 'Lar temporário',     color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200' },
+  disponivel:       { label: 'Disponível',         color: 'text-yellow-600',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  adotado:          { label: 'Adotado! 🎉',        color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300' },
+}
+
+const SEX_LABELS:     Record<string, string> = { macho: 'Macho', femea: 'Fêmea', indefinido: 'Indefinido' }
+const SPECIES_LABELS: Record<string, string> = { canino: 'Canino', felino: 'Felino', outro: 'Outro' }
+
+type SortKey = 'status' | 'name' | 'species'
+type SortDir = 'asc' | 'desc'
+
+// ─── Interest form ────────────────────────────────────────────────────────────
+
+const interestSchema = z.object({
+  full_name:     z.string().min(2, 'Nome obrigatório'),
+  phone:         z.string().min(8, 'Telefone obrigatório'),
+  email:         z.string().email('Email inválido').optional().or(z.literal('')),
+  interest_type: z.enum(['adocao', 'lar_temporario', 'contribuicao']),
+  message:       z.string().optional(),
+})
+type InterestValues = z.infer<typeof interestSchema>
+
+function InterestModal({ open, onClose, animal }: {
+  open: boolean; onClose: () => void; animal: Animal | null
+}) {
+  const { register, handleSubmit, setValue, reset, formState: { errors, isSubmitting } } = useForm<InterestValues>({
+    resolver: zodResolver(interestSchema),
+  })
+
+  async function onSubmit(values: InterestValues) {
+    const { error } = await supabase.from('interests').insert({
+      animal_id:     animal?.id ?? null,
+      full_name:     values.full_name,
+      phone:         values.phone,
+      email:         values.email || null,
+      interest_type: values.interest_type,
+      message:       values.message || null,
+    })
+    if (error) { toast.error('Erro ao enviar. Tente novamente.'); return }
+    toast.success('Interesse registrado! Entraremos em contato em breve. 🐾')
+    reset(); onClose()
+  }
+
+  function handleClose() { reset(); onClose() }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Heart size={16} className="text-red-400" />
+            {animal ? `Quero ajudar: ${animal.name}` : 'Quero ajudar'}
+          </DialogTitle>
+        </DialogHeader>
+        {animal && (
+          <div className="bg-stone-50 border border-stone-100 rounded-lg px-4 py-3 text-sm text-stone-600">
+            <span className="font-medium">{animal.name}</span> — {SPECIES_LABELS[animal.species]}, {SEX_LABELS[animal.sex]}
+            {animal.breed ? `, ${animal.breed}` : ''}
+          </div>
+        )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5 col-span-2">
+              <Label>Como quer ajudar? *</Label>
+              <Select onValueChange={(v) => setValue('interest_type', v as any)}>
+                <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="adocao">🏠 Quero adotar</SelectItem>
+                  <SelectItem value="lar_temporario">🛏️ Quero ser lar temporário</SelectItem>
+                  <SelectItem value="contribuicao">💰 Quero contribuir com despesas</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.interest_type && <p className="text-red-500 text-xs">{errors.interest_type.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome completo *</Label>
+              <Input {...register('full_name')} />
+              {errors.full_name && <p className="text-red-500 text-xs">{errors.full_name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Telefone *</Label>
+              <Input placeholder="(67) 99999-0000" {...register('phone')} />
+              {errors.phone && <p className="text-red-500 text-xs">{errors.phone.message}</p>}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input type="email" {...register('email')} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Mensagem</Label>
+            <Textarea rows={3} placeholder="Conte um pouco sobre você, sua moradia, rotina..." {...register('message')} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Enviar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Animal card ──────────────────────────────────────────────────────────────
+
+function AnimalCard({ animal, onHelp }: { animal: Animal; onHelp: (a: Animal) => void }) {
+  const cfg = STATUS_CONFIG[animal.status]
+  const isAdopted = animal.status === 'adotado'
+
+  return (
+    <div className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col ${
+      isAdopted
+        ? 'border-emerald-300 bg-gradient-to-b from-emerald-50 to-white ring-1 ring-emerald-200'
+        : 'border-stone-200 bg-white'
+    }`}>
+      {/* Photo placeholder */}
+      <div className={`h-44 flex flex-col items-center justify-center gap-2 ${
+        isAdopted ? 'bg-emerald-100/60' : 'bg-stone-100'
+      }`}>
+        {isAdopted ? (
+          <>
+            <span className="text-5xl">🎉</span>
+            <span className="text-xs font-medium text-emerald-700">Encontrou um lar!</span>
+          </>
+        ) : (
+          <PawPrint size={40} className="text-stone-300" />
+        )}
+      </div>
+
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex items-start justify-between mb-2">
+          <h3 className={`font-semibold ${isAdopted ? 'text-emerald-800' : 'text-stone-800'}`}>
+            {animal.name}{isAdopted ? ' 🐾' : ''}
+          </h3>
+          <Badge variant="outline" className={`text-xs ${cfg.color} ${cfg.bg} ${cfg.border}`}>
+            {cfg.label}
+          </Badge>
+        </div>
+        <p className="text-stone-400 text-xs mb-3">
+          {SEX_LABELS[animal.sex]} · {SPECIES_LABELS[animal.species]}
+          {animal.breed ? ` · ${animal.breed}` : ''}
+        </p>
+        {animal.notes && (
+          <p className="text-stone-500 text-xs mb-3 line-clamp-2">{animal.notes}</p>
+        )}
+        <div className="mt-auto">
+          {!isAdopted && (
+            <Button size="sm" variant="outline" className="w-full gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+              onClick={() => onHelp(animal)}>
+              <Heart size={12} />Quero ajudar
+            </Button>
+          )}
+          {isAdopted && (
+            <div className="text-center text-xs text-emerald-600 font-medium py-1">
+              ✨ Este animal já tem um lar feliz ✨
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Sort header ──────────────────────────────────────────────────────────────
+
+function SortButton({ label, field, current, dir, onSort }: {
+  label: string; field: SortKey; current: SortKey; dir: SortDir; onSort: (f: SortKey) => void
+}) {
+  const active = current === field
+  return (
+    <button onClick={() => onSort(field)}
+      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+        active ? 'bg-white border-stone-300 text-stone-800 font-medium shadow-sm' : 'border-transparent text-stone-500 hover:text-stone-700'
+      }`}>
+      {label}
+      {active ? (dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : <ChevronsUpDown size={12} className="opacity-30" />}
+    </button>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function PublicAnimals() {
+  const [animals,      setAnimals]      = useState<Animal[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [search,       setSearch]       = useState('')
+  const [sortKey,      setSortKey]      = useState<SortKey>('status')
+  const [sortDir,      setSortDir]      = useState<SortDir>('asc')
+  const [showAdopted,  setShowAdopted]  = useState(false)
+  const [interestModal, setInterestModal] = useState(false)
+  const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from('animals')
+        .select('*')
+        .is('deleted_at', null)
+        .in('status', PUBLIC_STATUSES)
+      setAnimals((data ?? []) as Animal[])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  function handleSort(field: SortKey) {
+    if (field === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(field); setSortDir('asc') }
+  }
+
+  function openInterest(animal: Animal | null) {
+    setSelectedAnimal(animal); setInterestModal(true)
+  }
+
+  const displayed = useMemo(() => {
+    const q = search.toLowerCase()
+    return animals
+      .filter(a => showAdopted ? true : a.status !== 'adotado')
+      .filter(a =>
+        a.name.toLowerCase().includes(q) ||
+        (a.breed ?? '').toLowerCase().includes(q) ||
+        SPECIES_LABELS[a.species]?.toLowerCase().includes(q)
+      )
+      .sort((a, b) => {
+        let cmp = 0
+        if (sortKey === 'status')   cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+        if (sortKey === 'name')     cmp = a.name.localeCompare(b.name, 'pt-BR')
+        if (sortKey === 'species')  cmp = a.species.localeCompare(b.species)
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+  }, [animals, search, sortKey, sortDir, showAdopted])
+
+  const adoptedCount = animals.filter(a => a.status === 'adotado').length
+
   return (
     <div className="min-h-screen bg-stone-50">
-      <header className="flex items-center justify-between px-8 py-5 border-b border-stone-200 bg-white">
-        <div className="flex items-center gap-2">
+      {/* Header */}
+      <header className="bg-white border-b border-stone-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <PawPrint className="text-emerald-600" size={22} />
           <span className="font-semibold text-stone-700">Protetoras Três Lagoas</span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+            onClick={() => openInterest(null)}>
+            <Heart size={13} />Quero ajudar
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/"><ArrowLeft size={15} className="mr-1" />Início</Link>
+          </Button>
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/"><ArrowLeft size={16} className="mr-1" />Início</Link>
-        </Button>
       </header>
 
-      <main className="max-w-5xl mx-auto px-8 py-12">
-        <h1 className="text-3xl font-bold text-stone-800 mb-2">Animais para adoção</h1>
-        <p className="text-stone-500 mb-8">Conheça os animais resgatados que estão em busca de um lar.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {MOCK.map((animal) => (
-            <div key={animal.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="bg-stone-100 h-44 flex items-center justify-center">
-                <PawPrint size={40} className="text-stone-300" />
-              </div>
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-stone-800">{animal.name}</h3>
-                  <Badge variant="outline" className="text-emerald-700 border-emerald-200 bg-emerald-50 text-xs">
-                    {animal.status}
-                  </Badge>
-                </div>
-                <p className="text-stone-400 text-sm">{animal.sex} · {animal.species} · {animal.breed}</p>
-              </div>
-            </div>
-          ))}
+      <main className="max-w-6xl mx-auto px-8 py-12">
+        {/* Page title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-stone-800 mb-2">Animais</h1>
+          <p className="text-stone-500">Conheça os animais resgatados que precisam de atenção, lar temporário ou adoção.</p>
         </div>
+
+        {/* Controls bar */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          {/* Search */}
+          <div className="relative flex-1 min-w-48 max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <Input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por nome, raça, espécie..." className="pl-9 bg-white" />
+          </div>
+
+          {/* Sort */}
+          <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-lg">
+            <SortButton label="Status"  field="status"  current={sortKey} dir={sortDir} onSort={handleSort} />
+            <SortButton label="Nome"    field="name"    current={sortKey} dir={sortDir} onSort={handleSort} />
+            <SortButton label="Espécie" field="species" current={sortKey} dir={sortDir} onSort={handleSort} />
+          </div>
+
+          {/* Adopted toggle */}
+          <button
+            onClick={() => setShowAdopted(v => !v)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+              showAdopted
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm'
+                : 'bg-white border-stone-200 text-stone-500 hover:border-stone-300'
+            }`}>
+            <PartyPopper size={14} className={showAdopted ? 'text-emerald-500' : 'text-stone-400'} />
+            {showAdopted ? `Mostrando adotados (${adoptedCount}) 🎉` : 'Mostrar adotados'}
+          </button>
+
+          <p className="text-xs text-stone-400 ml-auto shrink-0">{displayed.length} animal{displayed.length !== 1 ? 'is' : ''}</p>
+        </div>
+
+        {/* Adopted celebration banner */}
+        {showAdopted && adoptedCount > 0 && (
+          <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-4 flex items-center gap-3">
+            <span className="text-3xl">🎊</span>
+            <div>
+              <p className="font-semibold text-emerald-800">
+                {adoptedCount} animal{adoptedCount !== 1 ? 'is' : ''} {adoptedCount !== 1 ? 'encontraram' : 'encontrou'} um lar!
+              </p>
+              <p className="text-emerald-700 text-sm">Cada adoção é uma história de amor. Obrigada a todos que abriram seus corações. 💚</p>
+            </div>
+          </div>
+        )}
+
+        {/* Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-stone-400 gap-2">
+            <Loader2 size={18} className="animate-spin" /><span className="text-sm">Carregando...</span>
+          </div>
+        ) : displayed.length === 0 ? (
+          <div className="py-20 text-center text-stone-400">
+            <PawPrint size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">{search ? 'Nenhum animal encontrado.' : 'Nenhum animal disponível no momento.'}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {displayed.map(a => <AnimalCard key={a.id} animal={a} onHelp={openInterest} />)}
+          </div>
+        )}
       </main>
+
+      <InterestModal open={interestModal} onClose={() => setInterestModal(false)} animal={selectedAnimal} />
     </div>
   )
 }
