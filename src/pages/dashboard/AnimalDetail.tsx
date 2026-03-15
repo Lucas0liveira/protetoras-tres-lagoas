@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { toast } from 'sonner'
 import {
   ArrowLeft, PawPrint, Stethoscope, Syringe, Home,
   Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2,

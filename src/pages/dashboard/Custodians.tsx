@@ -47,7 +47,6 @@ function CustodianCard({ custodian }: { custodian: CustodianWithHistory }) {
   const [expanded, setExpanded] = useState(false)
 
   const activeCustodies  = custodian.custodies.filter(c => c.is_active)
-  const historyCustodies = custodian.custodies.filter(c => !c.is_active)
   const adoptions        = custodian.custodies.filter(c => c.custody_type === 'adocao')
   const fosters          = custodian.custodies.filter(c => c.custody_type === 'lar_temporario')
 

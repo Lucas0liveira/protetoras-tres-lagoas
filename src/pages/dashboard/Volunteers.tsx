@@ -21,15 +21,6 @@ const TYPE_COLORS: Record<string, string>  = {
   lar_temporario: 'bg-blue-50 text-blue-700 border-blue-200',
   contribuicao: 'bg-yellow-50 text-yellow-700 border-yellow-200',
 }
-const STATUS_LABELS: Record<InterestStatusEnum, string> = {
-  pendente: 'Pendente', contactado: 'Contactado', aprovado: 'Aprovado', recusado: 'Recusado',
-}
-const STATUS_COLORS: Record<InterestStatusEnum, string> = {
-  pendente:   'bg-orange-50 text-orange-700 border-orange-200',
-  contactado: 'bg-blue-50 text-blue-700 border-blue-200',
-  aprovado:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-  recusado:   'bg-stone-50 text-stone-500 border-stone-200',
-}
 
 type SortKey = 'created_at' | 'status' | 'interest_type'
 type SortDir = 'asc' | 'desc'

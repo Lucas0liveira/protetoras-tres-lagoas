@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import {
-  PawPrint, Search, ArrowLeft, Heart, SortAsc, ChevronDown, ChevronUp,
+  PawPrint, Search, ArrowLeft, Heart, ChevronDown, ChevronUp,
   ChevronsUpDown, Loader2, PartyPopper,
 } from 'lucide-react'
 

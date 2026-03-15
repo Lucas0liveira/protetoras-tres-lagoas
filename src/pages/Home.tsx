@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Shield, PawPrint } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import type { AnimalStatusEnum } from '@/types/database'
 
 interface Counts { pendente_resgate: number; resgatado: number; lar_temporario: number; disponivel: number; adotado: number }
 
