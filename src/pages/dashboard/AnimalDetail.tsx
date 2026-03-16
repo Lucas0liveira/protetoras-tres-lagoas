@@ -13,8 +13,8 @@ import type {
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AnimalPhotoUpload } from '@/components/AnimalPhotoUpload'
-import { SpecialNeedsBadge } from '@/components/SpecialNeedsBadge'
+import { AnimalPhotoUpload } from './AnimalPhotoUpload'
+import { SpecialNeedsBadge } from './SpecialNeedsBadge'
 
 import {
   EditAnimalModal, EditRescueModal, AddSanitaryModal, AddMedicalRecordModal,
