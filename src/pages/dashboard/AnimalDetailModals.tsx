@@ -86,7 +86,7 @@ const editAnimalSchema = z.object({
   birth_estimate:            z.string().optional(),
   notes:                     z.string().optional(),
   status:                    z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito']),
-  is_special_needs:          z.boolean().default(false),
+  is_special_needs:          z.boolean(),
   special_needs_description: z.string().optional(),
 })
 type EditAnimalValues = z.infer<typeof editAnimalSchema>

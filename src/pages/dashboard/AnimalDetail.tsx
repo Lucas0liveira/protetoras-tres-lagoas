@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { toast } from 'sonner'
 import {
   ArrowLeft, PawPrint, Stethoscope, Syringe, Home,
   Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2,
@@ -14,8 +13,8 @@ import type {
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AnimalPhotoUpload } from './AnimalPhotoUpload'
-import { SpecialNeedsBadge } from './SpecialNeedsBadge'
+import { AnimalPhotoUpload } from '@/components/AnimalPhotoUpload'
+import { SpecialNeedsBadge } from '@/components/SpecialNeedsBadge'
 
 import {
   EditAnimalModal, EditRescueModal, AddSanitaryModal, AddMedicalRecordModal,

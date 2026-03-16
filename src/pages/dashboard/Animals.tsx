@@ -69,7 +69,7 @@ const animalSchema = z.object({
   rescue_date: z.string().optional(), rescue_location: z.string().optional(),
   rescue_notes: z.string().optional(), rescued_by: z.string().optional(),
   foster_name: z.string().optional(), foster_phone: z.string().optional(), foster_since: z.string().optional(),
-  is_special_needs: z.boolean().default(false),
+  is_special_needs: z.boolean(),
   special_needs_description: z.string().optional(),
 }).superRefine((d, ctx) => {
   if (d.status !== 'pendente_resgate' && !d.rescue_date)
