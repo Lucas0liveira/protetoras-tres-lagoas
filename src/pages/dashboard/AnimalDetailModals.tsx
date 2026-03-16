@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -77,34 +78,44 @@ export async function syncAnimalStatus(
 // ─── EditAnimalModal ──────────────────────────────────────────────────────────
 
 const editAnimalSchema = z.object({
-  name:             z.string().min(1, 'Obrigatório'),
-  species:          z.enum(['canino', 'felino', 'outro']),
-  sex:              z.enum(['macho', 'femea', 'indefinido']),
-  breed:            z.string().optional(),
-  coat_description: z.string().optional(),
-  birth_estimate:   z.string().optional(),
-  notes:            z.string().optional(),
-  status:           z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito']),
+  name:                      z.string().min(1, 'Obrigatório'),
+  species:                   z.enum(['canino', 'felino', 'outro']),
+  sex:                       z.enum(['macho', 'femea', 'indefinido']),
+  breed:                     z.string().optional(),
+  coat_description:          z.string().optional(),
+  birth_estimate:            z.string().optional(),
+  notes:                     z.string().optional(),
+  status:                    z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito']),
+  is_special_needs:          z.boolean().default(false),
+  special_needs_description: z.string().optional(),
 })
 type EditAnimalValues = z.infer<typeof editAnimalSchema>
 
 export function EditAnimalModal({
   open, onClose, animal, onUpdated,
 }: { open: boolean; onClose: () => void; animal: Animal; onUpdated: (a: Animal) => void }) {
-  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<EditAnimalValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<EditAnimalValues>({
     resolver: zodResolver(editAnimalSchema),
     defaultValues: {
       name: animal.name, species: animal.species, sex: animal.sex,
       breed: animal.breed ?? '', coat_description: animal.coat_description ?? '',
       birth_estimate: animal.birth_estimate ?? '', notes: animal.notes ?? '',
       status: animal.status,
+      is_special_needs: animal.is_special_needs,
+      special_needs_description: animal.special_needs_description ?? '',
     },
   })
 
+  const isSpecial = watch('is_special_needs')
+
   async function onSubmit(values: EditAnimalValues) {
     const { data, error } = await supabase.from('animals')
-      .update({ ...values, breed: values.breed || null, coat_description: values.coat_description || null,
-        birth_estimate: values.birth_estimate || null, notes: values.notes || null })
+      .update({
+        ...values,
+        breed: values.breed || null, coat_description: values.coat_description || null,
+        birth_estimate: values.birth_estimate || null, notes: values.notes || null,
+        special_needs_description: values.is_special_needs ? (values.special_needs_description || null) : null,
+      })
       .eq('id', animal.id).select().single()
     if (error) { toast.error('Erro: ' + error.message); return }
     toast.success('Animal atualizado!')
@@ -166,6 +177,31 @@ export function EditAnimalModal({
             </Select>
           </div>
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={3} {...register('notes')} /></div>
+
+          {/* Special needs */}
+          <div className="border border-purple-100 rounded-lg p-4 space-y-3 bg-purple-50/40">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="is_special_needs"
+                checked={isSpecial}
+                onCheckedChange={(v) => setValue('is_special_needs', !!v)}
+              />
+              <Label htmlFor="is_special_needs" className="cursor-pointer font-medium text-purple-800">
+                Animal com necessidades especiais
+              </Label>
+            </div>
+            {isSpecial && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-purple-700">Descreva as necessidades</Label>
+                <Input
+                  placeholder="Ex: cego do olho direito, usa cadeirinha, medicação contínua..."
+                  className="text-sm"
+                  {...register('special_needs_description')}
+                />
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>

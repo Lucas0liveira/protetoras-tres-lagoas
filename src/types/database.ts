@@ -21,7 +21,10 @@ export interface Profile {
 export interface Animal {
   id: string; name: string; species: SpeciesEnum; sex: SexEnum; breed: string | null
   coat_description: string | null; birth_estimate: string | null; notes: string | null
-  status: AnimalStatusEnum; created_by: string | null; updated_by: string | null
+  status: AnimalStatusEnum
+  is_special_needs: boolean
+  special_needs_description: string | null
+  created_by: string | null; updated_by: string | null
   created_at: string; updated_at: string; deleted_at: string | null
 }
 

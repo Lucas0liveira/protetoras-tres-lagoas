@@ -10,8 +10,10 @@ import {
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
+import { cloudinaryUrl } from '@/lib/cloudinary'
 import type { Animal } from '@/types/database'
 import { STATUS_ORDER } from '@/types/database'
+import { SpecialNeedsBadge } from './dashboard/SpecialNeedsBadge'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -135,27 +137,38 @@ function InterestModal({ open, onClose, animal }: {
 
 // ─── Animal card ──────────────────────────────────────────────────────────────
 
-function AnimalCard({ animal, onHelp }: { animal: Animal; onHelp: (a: Animal) => void }) {
+function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: string | null; onHelp: (a: Animal) => void }) {
   const cfg = STATUS_CONFIG[animal.status]
   const isAdopted = animal.status === 'adotado'
 
   return (
-    <div className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col ${
+    <div className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col relative ${
       isAdopted
         ? 'border-emerald-300 bg-gradient-to-b from-emerald-50 to-white ring-1 ring-emerald-200'
         : 'border-stone-200 bg-white'
     }`}>
-      {/* Photo placeholder */}
-      <div className={`h-44 flex flex-col items-center justify-center gap-2 ${
-        isAdopted ? 'bg-emerald-100/60' : 'bg-stone-100'
-      }`}>
-        {isAdopted ? (
-          <>
+      {/* Special needs ribbon */}
+      {animal.is_special_needs && (
+        <SpecialNeedsBadge variant="ribbon" description={animal.special_needs_description} />
+      )}
+
+      {/* Photo */}
+      <div className={`h-44 overflow-hidden ${isAdopted ? 'bg-emerald-100/60' : 'bg-stone-100'}`}>
+        {photoUrl ? (
+          <img
+            src={cloudinaryUrl(photoUrl, 'w_400,h_176,c_fill,q_auto,f_auto')}
+            alt={animal.name}
+            className="w-full h-full object-cover"
+          />
+        ) : isAdopted ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <span className="text-5xl">🎉</span>
             <span className="text-xs font-medium text-emerald-700">Encontrou um lar!</span>
-          </>
+          </div>
         ) : (
-          <PawPrint size={40} className="text-stone-300" />
+          <div className="w-full h-full flex items-center justify-center">
+            <PawPrint size={40} className="text-stone-300" />
+          </div>
         )}
       </div>
 
@@ -214,6 +227,7 @@ function SortButton({ label, field, current, dir, onSort }: {
 
 export default function PublicAnimals() {
   const [animals,      setAnimals]      = useState<Animal[]>([])
+  const [photoMap,     setPhotoMap]     = useState<Record<string, string>>({})
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
   const [sortKey,      setSortKey]      = useState<SortKey>('status')
@@ -224,12 +238,14 @@ export default function PublicAnimals() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('animals')
-        .select('*')
-        .is('deleted_at', null)
-        .in('status', PUBLIC_STATUSES)
-      setAnimals((data ?? []) as Animal[])
+      const [{ data: animalData }, { data: photoData }] = await Promise.all([
+        supabase.from('animals').select('*').is('deleted_at', null).in('status', PUBLIC_STATUSES),
+        supabase.from('animal_photos').select('animal_id, storage_path').eq('is_cover', true),
+      ])
+      setAnimals((animalData ?? []) as Animal[])
+      const map: Record<string, string> = {}
+      ;(photoData ?? []).forEach((p: any) => { map[p.animal_id] = p.storage_path })
+      setPhotoMap(map)
       setLoading(false)
     }
     load()
@@ -346,7 +362,9 @@ export default function PublicAnimals() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {displayed.map(a => <AnimalCard key={a.id} animal={a} onHelp={openInterest} />)}
+            {displayed.map(a => (
+              <AnimalCard key={a.id} animal={a} photoUrl={photoMap[a.id] ?? null} onHelp={openInterest} />
+            ))}
           </div>
         )}
       </main>

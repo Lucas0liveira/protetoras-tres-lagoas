@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   ArrowLeft, PawPrint, Stethoscope, Syringe, Home,
   Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2,
@@ -8,11 +9,13 @@ import {
 import { supabase } from '@/lib/supabase'
 import type {
   Animal, AnimalRescue, SanitaryProcedure, MedicalRecord,
-  AnimalCustody, Custodian, Clinic,
+  AnimalCustody, Custodian, Clinic, AnimalPhoto,
 } from '@/types/database'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { AnimalPhotoUpload } from './AnimalPhotoUpload'
+import { SpecialNeedsBadge } from './SpecialNeedsBadge'
 
 import {
   EditAnimalModal, EditRescueModal, AddSanitaryModal, AddMedicalRecordModal,
@@ -111,6 +114,7 @@ export default function AnimalDetail() {
   const [custodians, setCustodians] = useState<Custodian[]>([])
   const [clinics,    setClinics]    = useState<Clinic[]>([])
   const [auditLog,   setAuditLog]   = useState<AuditEvent[]>([])
+  const [coverPhoto, setCoverPhoto] = useState<AnimalPhoto | null>(null)
 
   useEffect(() => { if (id) load() }, [id])
 
@@ -124,6 +128,7 @@ export default function AnimalDetail() {
       { data: custodyData },
       { data: custodiansData },
       { data: clinicsData },
+      { data: photoData },
     ] = await Promise.all([
       supabase.from('animals').select('*').eq('id', id!).single(),
       supabase.from('animal_rescues').select('*').eq('animal_id', id!).maybeSingle(),
@@ -132,6 +137,7 @@ export default function AnimalDetail() {
       supabase.from('animal_custody').select('*, custodian:custodians(id,full_name,phone,email,cpf,address_street,address_neighborhood,address_city,notes)').eq('animal_id', id!).order('started_at', { ascending: false }),
       supabase.from('custodians').select('*').is('deleted_at', null).order('full_name'),
       supabase.from('clinics').select('*').is('deleted_at', null).order('name'),
+      supabase.from('animal_photos').select('*').eq('animal_id', id!).eq('is_cover', true).maybeSingle(),
     ])
     if (animalErr || !animalData) { setNotFound(true); setLoading(false); return }
     const a = animalData as Animal
@@ -142,6 +148,7 @@ export default function AnimalDetail() {
     setAnimal(a); setRescue(re); setSanitary(sa); setRecords(mr); setCustody(cu)
     setCustodians((custodiansData ?? []) as Custodian[])
     setClinics((clinicsData ?? []) as Clinic[])
+    setCoverPhoto(photoData as AnimalPhoto | null)
     buildAuditLog(a, re, sa, mr, cu)
     setLoading(false)
   }
@@ -201,19 +208,33 @@ export default function AnimalDetail() {
         <Button asChild variant="ghost" size="sm" className="mb-6 text-stone-500 -ml-2">
           <Link to="/dashboard/animais"><ArrowLeft size={15} className="mr-1" />Voltar</Link>
         </Button>
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-stone-800 mb-1">{animal.name}</h1>
-            <p className="text-stone-400 text-sm">
-              {SPECIES_LABELS[animal.species]} · {SEX_LABELS[animal.sex]}
-              {animal.breed ? ` · ${animal.breed}` : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={STATUS_COLORS[animal.status]}>{STATUS_LABELS[animal.status]}</Badge>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMainModal('edit_animal')}>
-              <Pencil size={13} />Editar
-            </Button>
+        <div className="flex items-start gap-6 mb-8">
+          {/* Photo */}
+          <AnimalPhotoUpload
+            animalId={animal.id}
+            photo={coverPhoto}
+            onUpdated={setCoverPhoto}
+          />
+          {/* Name + meta */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h1 className="text-3xl font-bold text-stone-800 mb-1">{animal.name}</h1>
+                <p className="text-stone-400 text-sm">
+                  {SPECIES_LABELS[animal.species]} · {SEX_LABELS[animal.sex]}
+                  {animal.breed ? ` · ${animal.breed}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant="outline" className={STATUS_COLORS[animal.status]}>{STATUS_LABELS[animal.status]}</Badge>
+                {animal.is_special_needs && (
+                  <SpecialNeedsBadge description={animal.special_needs_description} />
+                )}
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMainModal('edit_animal')}>
+                  <Pencil size={13} />Editar
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
