@@ -15,7 +15,7 @@ CREATE TABLE alerts (
 
 CREATE TRIGGER set_alerts_updated_at
   BEFORE UPDATE ON alerts
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 

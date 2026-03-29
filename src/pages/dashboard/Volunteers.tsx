@@ -62,7 +62,7 @@ const FIELD_LABELS: Record<string, string> = {
   ciente_responsabilidade: 'Ciente da responsabilidade', ciente_comunicar: 'Ciente de comunicar',
   criancas: 'Crianças na casa',
   // Voluntário
-  documento: 'RG/CPF', endereco_cep: 'Endereço e CEP',
+  endereco_cep: 'Endereço e CEP',
   por_que_voluntario: 'Por que quer ser voluntário', trabalho_voluntario_anterior: 'Trabalho voluntário anterior',
   disponibilidade: 'Disponibilidade semanal', areas_atuacao: 'Áreas de atuação',
   locomocao: 'Meio de locomoção', confortavel_transporte: 'Confortável transportar animais',
@@ -80,7 +80,7 @@ function InterestDetailModal({ interest, onClose }: { interest: (Interest & { an
   const entries = Object.entries(form_data).filter(([, v]) => v !== null && v !== '' && v !== undefined)
 
   return (
-    <Dialog open={!!interest} onOpenChange={v => !v && onClose()}>
+    <Dialog open={!!interest} onOpenChange={(v: any) => !v && onClose()}>
       <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -192,7 +192,7 @@ function InterestRow({ interest, onUpdated, onShowDetail }: {
         )}
       </td>
       <td className="px-4 py-3">
-        <Select value={interest.status} onValueChange={(v) => updateStatus(v as InterestStatusEnum)}>
+        <Select value={interest.status} onValueChange={(v: string) => updateStatus(v as InterestStatusEnum)}>
           <SelectTrigger className="h-7 text-xs w-32">
             <SelectValue />
           </SelectTrigger>
@@ -308,7 +308,7 @@ export default function Volunteers() {
           <Input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome, tel, email..." className="pl-9 bg-white text-sm" />
         </div>
-        <Select value={filterStatus} onValueChange={v => setFilterStatus(v as any)}>
+        <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v as any)}>
           <SelectTrigger className="w-36 bg-white"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos status</SelectItem>

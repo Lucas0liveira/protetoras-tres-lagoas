@@ -19,7 +19,7 @@ CREATE INDEX ON pharmacy_items(deleted_at);
 
 CREATE TRIGGER set_pharmacy_items_updated_at
   BEFORE UPDATE ON pharmacy_items
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 ALTER TABLE pharmacy_items ENABLE ROW LEVEL SECURITY;
 

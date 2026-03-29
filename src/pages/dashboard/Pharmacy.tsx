@@ -67,7 +67,7 @@ function ItemModal({
   onSaved: (saved: PharmacyItem) => void
 }) {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ItemValues>({
-    resolver: zodResolver(itemSchema),
+    resolver: zodResolver(itemSchema) as any,
   })
 
   useEffect(() => {

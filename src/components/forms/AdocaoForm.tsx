@@ -77,14 +77,6 @@ type FormValues = z.infer<typeof schema>
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SectionTitle({ title }: { title: string }) {
-  return (
-    <div className="col-span-2 pt-4 pb-1 border-b border-stone-100">
-      <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider">{title}</p>
-    </div>
-  )
-}
-
 function RadioGroup({ name, label, options, value, onChange, required }: {
   name: string; label: string; options: string[]; value: string | undefined; onChange: (v: string) => void; required?: boolean
 }) {
@@ -148,7 +140,7 @@ export function AdocaoForm({ open, onClose, animal }: {
 
         {/* Step indicator */}
         <div className="flex gap-1 mb-2">
-          {sections.map((s, i) => (
+          {sections.map((_s, i) => (
             <button key={i} type="button" onClick={() => setStep(i)}
               className={`flex-1 h-1.5 rounded-full transition-colors ${i <= step ? 'bg-brand-500' : 'bg-stone-200'}`} />
           ))}

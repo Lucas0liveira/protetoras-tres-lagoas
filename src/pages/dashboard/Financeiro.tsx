@@ -42,7 +42,7 @@ function RecordModal({
   open: boolean; onClose: () => void; onSaved: (r: FinancialRecord) => void
 }) {
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<RecordValues>({
-    resolver: zodResolver(recordSchema),
+    resolver: zodResolver(recordSchema) as any,
     defaultValues: { type: 'despesa' },
   })
 
