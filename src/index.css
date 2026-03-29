@@ -12,6 +12,18 @@
     --radius-2xl: calc(var(--radius) + 8px);
     --radius-3xl: calc(var(--radius) + 12px);
     --radius-4xl: calc(var(--radius) + 16px);
+    /* Brand color scale — change --brand-* variables below to retheme the entire app */
+    --color-brand-50: var(--brand-50);
+    --color-brand-100: var(--brand-100);
+    --color-brand-200: var(--brand-200);
+    --color-brand-300: var(--brand-300);
+    --color-brand-400: var(--brand-400);
+    --color-brand-500: var(--brand-500);
+    --color-brand-600: var(--brand-600);
+    --color-brand-700: var(--brand-700);
+    --color-brand-800: var(--brand-800);
+    --color-brand-900: var(--brand-900);
+    --color-brand-950: var(--brand-950);
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --color-card: var(--card);
@@ -46,6 +58,20 @@
 }
 
 :root {
+    /* ── Brand color scale (emerald by default) ──────────────────────────── */
+    /* To retheme: replace these OKLCH values with your desired color scale.  */
+    --brand-50:  oklch(0.979 0.021 166.1);
+    --brand-100: oklch(0.950 0.052 166.1);
+    --brand-200: oklch(0.905 0.093 164.4);
+    --brand-300: oklch(0.845 0.143 164.5);
+    --brand-400: oklch(0.765 0.177 163.2);
+    --brand-500: oklch(0.696 0.170 162.5);
+    --brand-600: oklch(0.596 0.145 163.4);
+    --brand-700: oklch(0.508 0.118 165.6);
+    --brand-800: oklch(0.432 0.095 166.1);
+    --brand-900: oklch(0.378 0.077 168.9);
+    --brand-950: oklch(0.262 0.051 172.6);
+    /* ──────────────────────────────────────────────────────────────────────── */
     --radius: 0.625rem;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
