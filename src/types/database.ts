@@ -9,7 +9,7 @@ export type CustodyTypeEnum        = 'lar_temporario' | 'adocao'
 export type CustodyEndReasonEnum   = 'devolucao_incompatibilidade' | 'devolucao_mudanca' | 'devolucao_alergia' | 'falecimento_responsavel' | 'transferencia' | 'obito_animal' | 'outro'
 export type SanitaryProcedureEnum  = 'castracao' | 'vacina_v8' | 'vacina_v10' | 'vacina_antirabica' | 'vermifugacao' | 'bravecto' | 'coleira_leishmaniose' | 'transfusao_sanguinea' | 'outro'
 export type UserRoleEnum           = 'admin' | 'volunteer'
-export type InterestTypeEnum       = 'adocao' | 'lar_temporario' | 'contribuicao'
+export type InterestTypeEnum       = 'adocao' | 'lar_temporario' | 'contribuicao' | 'voluntario'
 export type InterestStatusEnum     = 'pendente' | 'contactado' | 'aprovado' | 'recusado'
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
@@ -90,13 +90,39 @@ export interface SanitaryProcedure {
 export interface Interest {
   id: string; animal_id: string | null; full_name: string; phone: string
   email: string | null; message: string | null; interest_type: InterestTypeEnum
-  status: InterestStatusEnum; admin_notes: string | null; created_at: string; updated_at: string
+  status: InterestStatusEnum; admin_notes: string | null
+  form_data: Record<string, unknown> | null
+  created_at: string; updated_at: string
   animal?: Pick<Animal, 'id' | 'name' | 'species'>
 }
 
 export interface AnimalPhoto {
   id: string; animal_id: string; storage_path: string; is_cover: boolean
   caption: string | null; taken_at: string | null; uploaded_by: string | null; created_at: string
+}
+
+export interface PharmacyItem {
+  id: string; name: string; description: string | null
+  quantity: number; unit: string | null; expiration_date: string | null
+  batch_number: string | null; created_by: string | null
+  created_at: string; updated_at: string; deleted_at: string | null
+}
+
+export interface Alert {
+  id: string; title: string; body: string
+  link_url: string | null; link_label: string | null; image_url: string | null
+  is_active: boolean; created_by: string | null; created_at: string; updated_at: string
+}
+
+export interface SiteConfig {
+  key: string; value: unknown; updated_by: string | null; updated_at: string
+}
+
+export interface FinancialRecord {
+  id: string; period: string; type: 'receita' | 'despesa'
+  category: string | null; description: string; amount: number
+  reference_date: string | null; source: string | null
+  created_by: string | null; created_at: string
 }
 
 // ─── Status sort order ────────────────────────────────────────────────────────
