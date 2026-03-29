@@ -27,13 +27,13 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
     <div className="flex flex-col h-full bg-white">
       <div className="flex items-center justify-between px-5 py-5 border-b border-stone-100">
         <Link to="/" onClick={onClose} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <img
-            src="/logo.png"
+          {/* <img
+            src="/logo.svg"
             alt="Protetoras TL"
             className="h-7 w-7 object-contain"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block' }}
-          />
-          <PawPrint size={20} className="text-brand-600 hidden" />
+          /> */}
+          <PawPrint size={20} className="text-brand-600" />
           <span className="font-semibold text-stone-700 text-sm tracking-tight">Protetoras TL</span>
         </Link>
         {onClose && (
@@ -123,8 +123,8 @@ export default function DashboardLayout() {
             <Menu size={20} />
           </button>
           <Link to="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Protetoras TL" className="h-6 w-6 object-contain"
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block' }} />
+              {/* <img src="/logo.svg" alt="Protetoras TL" className="h-6 w-6 object-contain"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block' }} /> */}
             <PawPrint size={18} className="text-brand-600 hidden" />
             <span className="font-semibold text-stone-700 text-sm">Protetoras TL</span>
           </Link>

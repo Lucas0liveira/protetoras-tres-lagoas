@@ -24,16 +24,16 @@ export default function Contribuir() {
       {/* Nav */}
       <header className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <img
-            src="/logo.png"
+          {/* <img
+            src="/logo.svg"
             alt="Protetoras TL"
             className="h-8 w-8 object-contain"
             onError={e => {
               ;(e.currentTarget as HTMLImageElement).style.display = 'none'
               ;(e.currentTarget.nextElementSibling as HTMLElement).style.display = 'inline'
             }}
-          />
-          <PawPrint className="text-brand-600 hidden" size={22} />
+          /> */}
+          <PawPrint className="text-brand-600" size={22} />
           <span className="font-semibold text-stone-700">Protetoras Três Lagoas</span>
         </Link>
         <Button asChild size="sm" variant="outline">

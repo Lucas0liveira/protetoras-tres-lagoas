@@ -398,14 +398,14 @@ export default function Home() {
       {/* Nav */}
       <header className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <img
-            src="/logo.png"
+          {/* <img
+            src="/logo.svg"
             alt="Protetoras TL"
             className="h-8 w-8 object-contain"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'inline' }}
-          />
-          <PawPrint className="text-brand-600 hidden" size={22} />
-          <span className="font-semibold text-stone-700">Protetoras Três Lagoas</span>
+          /> */}
+          <PawPrint className="text-brand-600" size={22} />
+            <span className="hidden sm:inline font-semibold text-stone-700">Protetoras Três Lagoas</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5" onClick={() => openInterest(null)}>
@@ -520,7 +520,7 @@ export default function Home() {
                 {showAdopted ? `Mostrando adotados (${adoptedCount}) 🎉` : 'Mostrar adotados'}
               </button>
             )}
-            <p className="text-xs text-stone-400 ml-auto shrink-0">{displayed.length} animal{displayed.length !== 1 ? 'is' : ''}</p>
+            <p className="text-xs text-stone-400 ml-auto shrink-0">{displayed.length} {displayed.length !== 1 ? 'animais' : 'animal'}</p>
           </div>
 
           {showAdopted && !statusFilter && adoptedCount > 0 && (
