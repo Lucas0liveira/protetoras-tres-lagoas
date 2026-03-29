@@ -32,7 +32,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   resgatado:        { label: 'Recém resgatado',    color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200' },
   lar_temporario:   { label: 'Lar temporário',     color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200' },
   disponivel:       { label: 'Disponível',         color: 'text-yellow-600',  bg: 'bg-yellow-50',  border: 'border-yellow-200' },
-  adotado:          { label: 'Adotado! 🎉',        color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300' },
+  adotado:          { label: 'Adotado! 🎉',        color: 'text-brand-700', bg: 'bg-brand-50', border: 'border-brand-300' },
 }
 
 const SEX_LABELS:     Record<string, string> = { macho: 'Macho', femea: 'Fêmea', indefinido: 'Indefinido' }
@@ -125,7 +125,7 @@ function InterestModal({ open, onClose, animal }: {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Enviar
             </Button>
           </DialogFooter>
@@ -144,7 +144,7 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
   return (
     <div className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col relative ${
       isAdopted
-        ? 'border-emerald-300 bg-gradient-to-b from-emerald-50 to-white ring-1 ring-emerald-200'
+        ? 'border-brand-300 bg-gradient-to-b from-brand-50 to-white ring-1 ring-brand-200'
         : 'border-stone-200 bg-white'
     }`}>
       {/* Special needs ribbon */}
@@ -153,7 +153,7 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
       )}
 
       {/* Photo */}
-      <div className={`h-44 overflow-hidden ${isAdopted ? 'bg-emerald-100/60' : 'bg-stone-100'}`}>
+      <div className={`h-44 overflow-hidden ${isAdopted ? 'bg-brand-100/60' : 'bg-stone-100'}`}>
         {photoUrl ? (
           <img
             src={cloudinaryUrl(photoUrl, 'w_400,h_176,c_fill,q_auto,f_auto')}
@@ -163,7 +163,7 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
         ) : isAdopted ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <span className="text-5xl">🎉</span>
-            <span className="text-xs font-medium text-emerald-700">Encontrou um lar!</span>
+            <span className="text-xs font-medium text-brand-700">Encontrou um lar!</span>
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -174,7 +174,7 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
 
       <div className="p-4 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-2">
-          <h3 className={`font-semibold ${isAdopted ? 'text-emerald-800' : 'text-stone-800'}`}>
+          <h3 className={`font-semibold ${isAdopted ? 'text-brand-800' : 'text-stone-800'}`}>
             {animal.name}{isAdopted ? ' 🐾' : ''}
           </h3>
           <Badge variant="outline" className={`text-xs ${cfg.color} ${cfg.bg} ${cfg.border}`}>
@@ -190,13 +190,13 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
         )}
         <div className="mt-auto">
           {!isAdopted && (
-            <Button size="sm" variant="outline" className="w-full gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+            <Button size="sm" variant="outline" className="w-full gap-1.5 text-brand-700 border-brand-200 hover:bg-brand-50"
               onClick={() => onHelp(animal)}>
               <Heart size={12} />Quero ajudar
             </Button>
           )}
           {isAdopted && (
-            <div className="text-center text-xs text-emerald-600 font-medium py-1">
+            <div className="text-center text-xs text-brand-600 font-medium py-1">
               ✨ Este animal já tem um lar feliz ✨
             </div>
           )}
@@ -285,11 +285,11 @@ export default function PublicAnimals() {
       {/* Header */}
       <header className="bg-white border-b border-stone-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <PawPrint className="text-emerald-600" size={22} />
+          <PawPrint className="text-brand-600" size={22} />
           <span className="font-semibold text-stone-700">Protetoras Três Lagoas</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+          <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5"
             onClick={() => openInterest(null)}>
             <Heart size={13} />Quero ajudar
           </Button>
@@ -327,10 +327,10 @@ export default function PublicAnimals() {
             onClick={() => setShowAdopted(v => !v)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
               showAdopted
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm'
+                ? 'bg-brand-50 border-brand-300 text-brand-700 shadow-sm'
                 : 'bg-white border-stone-200 text-stone-500 hover:border-stone-300'
             }`}>
-            <PartyPopper size={14} className={showAdopted ? 'text-emerald-500' : 'text-stone-400'} />
+            <PartyPopper size={14} className={showAdopted ? 'text-brand-500' : 'text-stone-400'} />
             {showAdopted ? `Mostrando adotados (${adoptedCount}) 🎉` : 'Mostrar adotados'}
           </button>
 
@@ -339,13 +339,13 @@ export default function PublicAnimals() {
 
         {/* Adopted celebration banner */}
         {showAdopted && adoptedCount > 0 && (
-          <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl px-6 py-4 flex items-center gap-3">
+          <div className="mb-6 bg-brand-50 border border-brand-200 rounded-xl px-6 py-4 flex items-center gap-3">
             <span className="text-3xl">🎊</span>
             <div>
-              <p className="font-semibold text-emerald-800">
+              <p className="font-semibold text-brand-800">
                 {adoptedCount} animal{adoptedCount !== 1 ? 'is' : ''} {adoptedCount !== 1 ? 'encontraram' : 'encontrou'} um lar!
               </p>
-              <p className="text-emerald-700 text-sm">Cada adoção é uma história de amor. Obrigada a todos que abriram seus corações. 💚</p>
+              <p className="text-brand-700 text-sm">Cada adoção é uma história de amor. Obrigada a todos que abriram seus corações. 💚</p>
             </div>
           </div>
         )}
