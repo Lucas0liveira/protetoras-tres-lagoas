@@ -28,7 +28,7 @@ export default function Login() {
       <div className="w-full max-w-sm bg-white border border-stone-200 rounded-2xl p-8 shadow-sm">
         <div className="flex justify-center mb-6">
           <div className="flex items-center gap-2">
-            <PawPrint className="text-emerald-600" size={24} />
+            <PawPrint className="text-brand-600" size={24} />
             <span className="font-semibold text-stone-700">Protetoras TL</span>
           </div>
         </div>
@@ -45,7 +45,7 @@ export default function Login() {
             <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
+          <Button type="submit" className="w-full bg-brand-600 hover:bg-brand-700" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>

@@ -10,6 +10,10 @@ import Custodians from '@/pages/dashboard/Custodians'
 import Clinics from '@/pages/dashboard/Clinics'
 import Volunteers from '@/pages/dashboard/Volunteers'
 import Settings from '@/pages/dashboard/Settings'
+import Pharmacy from '@/pages/dashboard/Pharmacy'
+import AlertsPage from '@/pages/dashboard/Alerts'
+import Financeiro from '@/pages/dashboard/Financeiro'
+import Transparencia from '@/pages/Transparencia'
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -19,7 +23,8 @@ export default function App() {
     <Routes>
       {/* public */}
       <Route path="/" element={<Home />} />
-      <Route path="/animais" element={<PublicAnimals />} />
+      <Route path="/animais" element={<Navigate to="/" replace />} />
+      <Route path="/transparencia" element={<Transparencia />} />
       <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard/animais" />} />
 
       {/* protected */}
@@ -30,6 +35,9 @@ export default function App() {
         <Route path="custodios"       element={<Custodians />} />
         <Route path="clinicas"        element={<Clinics />} />
         <Route path="voluntarios"     element={<Volunteers />} />
+        <Route path="farmacia"        element={<Pharmacy />} />
+        <Route path="alertas"         element={<AlertsPage />} />
+        <Route path="financeiro"      element={<Financeiro />} />
         <Route path="configuracoes"   element={<Settings />} />
       </Route>
     </Routes>
