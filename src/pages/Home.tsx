@@ -432,7 +432,14 @@ export default function Home() {
           }}>
             Ver animais disponíveis
           </Button>
-          <Button variant="outline" size="lg" asChild><a href="#sobre">Saiba mais</a></Button>
+          <Button variant="outline" size="lg" asChild>
+            <Link to="/contribuir"><Heart size={16} className="mr-1.5" />Fazer doação</Link>
+          </Button>
+          <Button variant="ghost" size="lg" className="text-stone-500" onClick={() => {
+            document.getElementById('doacoes')?.scrollIntoView({ behavior: 'smooth' })
+          }}>
+            <Package size={16} className="mr-1.5" />Itens aceitos
+          </Button>
         </div>
       </section>
 
@@ -474,25 +481,6 @@ export default function Home() {
       </section>
 
       {/* Wish list */}
-      {wishList.length > 0 && (
-        <section className="border-t border-stone-200 bg-stone-50">
-          <div className="max-w-5xl mx-auto px-6 py-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Package size={18} className="text-brand-600" />
-              <h2 className="text-base font-semibold text-stone-700">Itens sempre bem-vindos</h2>
-            </div>
-            <p className="text-sm text-stone-500 mb-4">Doações desses itens ajudam diretamente no cuidado dos animais.</p>
-            <div className="flex flex-wrap gap-2">
-              {wishList.map(item => (
-                <span key={item} className="px-3 py-1.5 bg-white border border-stone-200 rounded-full text-sm text-stone-700 font-medium">
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* Animal list */}
       <section id="animais" className="border-t border-stone-200">
         <div className="max-w-6xl mx-auto px-6 py-12">
@@ -565,6 +553,31 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      {/* Donation items wishlist */}
+      {wishList.length > 0 && (
+        <section id="doacoes" className="border-t border-stone-200 bg-stone-50">
+          <div className="max-w-5xl mx-auto px-6 py-10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Package size={18} className="text-brand-600" />
+                <h2 className="text-base font-semibold text-stone-700">Itens sempre bem-vindos</h2>
+              </div>
+              <Button asChild size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5 self-start sm:self-auto">
+                <Link to="/contribuir"><Heart size={13} />Doar via Pix</Link>
+              </Button>
+            </div>
+            <p className="text-sm text-stone-500 mb-4">Doações desses itens ajudam diretamente no cuidado dos animais.</p>
+            <div className="flex flex-wrap gap-2">
+              {wishList.map(item => (
+                <span key={item} className="px-3 py-1.5 bg-white border border-stone-200 rounded-full text-sm text-stone-700 font-medium">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* About */}
       <section id="sobre" className="border-t border-stone-200 bg-white">
