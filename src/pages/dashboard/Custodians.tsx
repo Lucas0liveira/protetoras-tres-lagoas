@@ -60,7 +60,7 @@ function CustodianCard({ custodian }: { custodian: CustodianWithHistory }) {
           <div className="flex items-center gap-2 mb-1">
             <p className="font-semibold text-stone-800">{custodian.full_name}</p>
             {adoptions.some(c => c.is_active) && (
-              <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">Adoção ativa</Badge>
+              <Badge variant="outline" className="text-xs bg-brand-50 text-brand-700 border-brand-200">Adoção ativa</Badge>
             )}
             {fosters.some(c => c.is_active) && (
               <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Lar temporário ativo</Badge>
@@ -81,7 +81,7 @@ function CustodianCard({ custodian }: { custodian: CustodianWithHistory }) {
               <p className="text-xs text-stone-400">Total custódias</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-emerald-600">{adoptions.length}</p>
+              <p className="text-lg font-bold text-brand-600">{adoptions.length}</p>
               <p className="text-xs text-stone-400">Adoções</p>
             </div>
             <div className="text-center">
@@ -112,13 +112,13 @@ function CustodianCard({ custodian }: { custodian: CustodianWithHistory }) {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors
                   hover:bg-white hover:border-stone-300
                   bg-white border-stone-200 text-stone-700">
-                <PawPrint size={12} className="text-emerald-500" />
+                <PawPrint size={12} className="text-brand-500" />
                 {c.animal.name}
                 <span className="text-xs text-stone-400">
                   ({SPECIES_LABELS[c.animal.species] ?? c.animal.species})
                 </span>
                 <Badge variant="outline" className={`text-xs ml-1 ${c.custody_type === 'adocao'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  ? 'bg-brand-50 text-brand-700 border-brand-200'
                   : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                   {c.custody_type === 'adocao' ? 'Adoção' : 'Lar temp.'}
                 </Badge>
@@ -138,12 +138,12 @@ function CustodianCard({ custodian }: { custodian: CustodianWithHistory }) {
                 ? 'border-stone-200 bg-white' : 'border-stone-100 bg-stone-50 opacity-75'}`}>
                 <div className="flex items-center gap-2">
                   <a href={`/dashboard/animais/${c.animal.id}`}
-                    className="font-medium text-stone-700 hover:text-emerald-600 hover:underline">
+                    className="font-medium text-stone-700 hover:text-brand-600 hover:underline">
                     {c.animal.name}
                   </a>
                   <span className="text-xs text-stone-400">{SPECIES_LABELS[c.animal.species]}</span>
                   <Badge variant="outline" className={`text-xs ${c.custody_type === 'adocao'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    ? 'bg-brand-50 text-brand-700 border-brand-200'
                     : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                     {c.custody_type === 'adocao' ? 'Adoção' : 'Lar temporário'}
                   </Badge>
@@ -240,7 +240,7 @@ export default function Custodians() {
   ]
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-stone-800">Adotantes & Lares</h1>
@@ -250,7 +250,7 @@ export default function Custodians() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
-          { label: 'Adoções ativas',       value: totalAdotantes,  color: 'text-emerald-600' },
+          { label: 'Adoções ativas',       value: totalAdotantes,  color: 'text-brand-600' },
           { label: 'Lares temporários ativos', value: totalLares,  color: 'text-blue-600' },
           { label: 'Total de custódias',   value: totalCustodias,  color: 'text-stone-700' },
         ].map(s => (

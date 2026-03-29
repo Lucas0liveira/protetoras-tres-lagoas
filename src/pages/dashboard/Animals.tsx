@@ -27,7 +27,7 @@ export const STATUS_COLORS: Record<AnimalStatusEnum, string> = {
   resgatado:        'bg-orange-50 text-orange-700 border-orange-200',
   lar_temporario:   'bg-blue-50 text-blue-700 border-blue-200',
   disponivel:       'bg-yellow-50 text-yellow-700 border-yellow-200',
-  adotado:          'bg-emerald-50 text-emerald-700 border-emerald-200',
+  adotado:          'bg-brand-50 text-brand-700 border-brand-200',
   obito:            'bg-stone-50 text-stone-500 border-stone-200',
 }
 export const STATUS_LABELS: Record<AnimalStatusEnum, string> = {
@@ -226,7 +226,7 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Cadastrar
             </Button>
           </DialogFooter>
@@ -290,14 +290,14 @@ export default function Animals() {
   }, [animals, search, sortField, sortDir])
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800">Animais</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-stone-800">Animais</h1>
           <p className="text-stone-400 text-sm mt-1">Todos os animais resgatados</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => setDialog(true)}>
-          <Plus size={16} />Novo animal
+        <Button className="bg-brand-600 hover:bg-brand-700 gap-2" onClick={() => setDialog(true)}>
+          <Plus size={16} /><span className="hidden sm:inline">Novo animal</span><span className="sm:hidden">Novo</span>
         </Button>
       </div>
 
@@ -320,58 +320,60 @@ export default function Animals() {
             {search ? 'Nenhum animal encontrado.' : 'Nenhum animal cadastrado ainda.'}
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-stone-100 bg-stone-50">
-              <tr>
-                <th className="w-12 px-4 py-3"></th>
-                <SortTh label="Nome"        field="name"       current={sortField} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Espécie"     field="species"    current={sortField} dir={sortDir} onSort={handleSort} />
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Sexo</th>
-                <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Raça</th>
-                <SortTh label="Status"      field="status"     current={sortField} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Cadastrado"  field="created_at" current={sortField} dir={sortDir} onSort={handleSort} />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(animal => {
-                const thumb = photoMap[animal.id]
-                  ? cloudinaryUrl(photoMap[animal.id], 'w_80,h_80,c_fill,q_auto,f_auto')
-                  : null
-                return (
-                  <tr key={animal.id}
-                    className="border-b border-stone-50 hover:bg-stone-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/dashboard/animais/${animal.id}`)}>
-                    <td className="px-4 py-2">
-                      <div className="w-9 h-9 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center shrink-0">
-                        {thumb
-                          ? <img src={thumb} alt={animal.name} className="w-full h-full object-cover" />
-                          : <span className="text-stone-300 text-base">🐾</span>
-                        }
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-stone-800">
-                      <span className="flex items-center gap-2">
-                        {animal.name}
-                        {animal.is_special_needs && (
-                          <span title={animal.special_needs_description ?? 'Animal especial'}
-                            className="text-xs px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200 font-normal shrink-0">
-                            especial
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-stone-500 capitalize">{animal.species}</td>
-                    <td className="px-4 py-3 text-stone-500 capitalize">{animal.sex}</td>
-                    <td className="px-4 py-3 text-stone-500">{animal.breed ?? 'SRD'}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={STATUS_COLORS[animal.status]}>{STATUS_LABELS[animal.status]}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-stone-500">{new Date(animal.created_at).toLocaleDateString('pt-BR')}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
+              <thead className="border-b border-stone-100 bg-stone-50">
+                <tr>
+                  <th className="w-12 px-4 py-3"></th>
+                  <SortTh label="Nome"        field="name"       current={sortField} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="Espécie"     field="species"    current={sortField} dir={sortDir} onSort={handleSort} />
+                  <th className="hidden sm:table-cell text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Sexo</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Raça</th>
+                  <SortTh label="Status"      field="status"     current={sortField} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="Cadastrado"  field="created_at" current={sortField} dir={sortDir} onSort={handleSort} />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(animal => {
+                  const thumb = photoMap[animal.id]
+                    ? cloudinaryUrl(photoMap[animal.id], 'w_80,h_80,c_fill,q_auto,f_auto')
+                    : null
+                  return (
+                    <tr key={animal.id}
+                      className="border-b border-stone-50 hover:bg-stone-50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/dashboard/animais/${animal.id}`)}>
+                      <td className="px-4 py-2">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center shrink-0">
+                          {thumb
+                            ? <img src={thumb} alt={animal.name} className="w-full h-full object-cover" />
+                            : <span className="text-stone-300 text-base">🐾</span>
+                          }
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-stone-800">
+                        <span className="flex items-center gap-2 flex-wrap">
+                          {animal.name}
+                          {animal.is_special_needs && (
+                            <span title={animal.special_needs_description ?? 'Animal especial'}
+                              className="text-xs px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200 font-normal shrink-0">
+                              especial
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-stone-500 capitalize">{animal.species}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 text-stone-500 capitalize">{animal.sex}</td>
+                      <td className="hidden md:table-cell px-4 py-3 text-stone-500">{animal.breed ?? 'SRD'}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={STATUS_COLORS[animal.status]}>{STATUS_LABELS[animal.status]}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-stone-500 whitespace-nowrap">{new Date(animal.created_at).toLocaleDateString('pt-BR')}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

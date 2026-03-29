@@ -64,7 +64,7 @@ function ClinicModal({ open, onClose, clinic, onSaved }: {
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('notes')} /></div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
             </Button>
           </DialogFooter>
@@ -127,7 +127,7 @@ function CostModal({ open, onClose, clinicId, cost, onSaved }: {
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('notes')} /></div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
             </Button>
           </DialogFooter>
@@ -167,7 +167,7 @@ function ClinicCard({ clinic, onEdit, onCostAdded, onCostUpdated, onCostDeleted 
       <div className="flex items-start justify-between p-5">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Building2 size={15} className="text-emerald-600" />
+            <Building2 size={15} className="text-brand-600" />
             <h3 className="font-semibold text-stone-800">{clinic.name}</h3>
           </div>
           <div className="flex flex-wrap gap-x-4 text-xs text-stone-400 mt-1">
@@ -196,7 +196,7 @@ function ClinicCard({ clinic, onEdit, onCostAdded, onCostUpdated, onCostDeleted 
         <div className="border-t border-stone-100 px-5 py-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <DollarSign size={14} className="text-emerald-600" />
+              <DollarSign size={14} className="text-brand-600" />
               <p className="text-sm font-semibold text-stone-700">Tabela de procedimentos</p>
             </div>
             <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
@@ -221,7 +221,7 @@ function ClinicCard({ clinic, onEdit, onCostAdded, onCostUpdated, onCostDeleted 
                   {clinic.costs.map(c => (
                     <tr key={c.id} className="border-b border-stone-50 last:border-0 hover:bg-stone-50">
                       <td className="px-3 py-2.5 font-medium text-stone-700">{c.procedure_name}</td>
-                      <td className="px-3 py-2.5 text-emerald-700 font-medium">{fmt(c.cost)}</td>
+                      <td className="px-3 py-2.5 text-brand-700 font-medium">{fmt(c.cost)}</td>
                       <td className="px-3 py-2.5 text-stone-400 text-xs">{c.notes ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
@@ -282,13 +282,13 @@ export default function Clinics() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-stone-800">Clínicas</h1>
           <p className="text-stone-400 text-sm mt-1">Clínicas parceiras e tabela de procedimentos</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={() => { setEditing(null); setModal(true) }}>
+        <Button className="bg-brand-600 hover:bg-brand-700 gap-2" onClick={() => { setEditing(null); setModal(true) }}>
           <Plus size={16} />Nova clínica
         </Button>
       </div>
