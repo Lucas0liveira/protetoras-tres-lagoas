@@ -13,6 +13,7 @@ import Pharmacy from '@/pages/dashboard/Pharmacy'
 import AlertsPage from '@/pages/dashboard/Alerts'
 import Financeiro from '@/pages/dashboard/Financeiro'
 import Transparencia from '@/pages/Transparencia'
+import Contribuir from '@/pages/Contribuir'
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/animais" element={<Navigate to="/" replace />} />
       <Route path="/transparencia" element={<Transparencia />} />
+      <Route path="/contribuir" element={<Contribuir />} />
       <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard/animais" />} />
 
       {/* protected */}
