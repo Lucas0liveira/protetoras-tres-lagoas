@@ -204,7 +204,7 @@ export function EditAnimalModal({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
             </Button>
           </DialogFooter>
@@ -263,7 +263,7 @@ export function EditRescueModal({
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={3} {...register('rescue_notes')} /></div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
             </Button>
           </DialogFooter>
@@ -326,7 +326,7 @@ export function AddSanitaryModal({
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('description')} /></div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { reset(); onClose() }}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Registrar
             </Button>
           </DialogFooter>
@@ -438,12 +438,12 @@ export function AddMedicalRecordModal({
               <SelectContent>
                 <SelectItem value="none">Sem clínica</SelectItem>
                 {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                <SelectItem value="new"><span className="flex items-center gap-2 text-emerald-600"><Plus size={13} />Nova clínica</span></SelectItem>
+                <SelectItem value="new"><span className="flex items-center gap-2 text-brand-600"><Plus size={13} />Nova clínica</span></SelectItem>
               </SelectContent>
             </Select>
           </div>
           {showNewClinic && (
-            <div className="border border-emerald-200 rounded-lg p-4 space-y-3 bg-emerald-50/40">
+            <div className="border border-brand-200 rounded-lg p-4 space-y-3 bg-brand-50/40">
               <p className="text-sm font-medium text-stone-700">Nova clínica</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Nome *</Label><Input {...register('new_clinic_name')} /></div>
@@ -525,7 +525,7 @@ export function AddMedicalRecordModal({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Registrar
             </Button>
           </DialogFooter>
@@ -620,13 +620,13 @@ export function AddCustodyModal({
               <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
               <SelectContent>
                 {custodians.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name} — {c.phone}</SelectItem>)}
-                <SelectItem value="new"><span className="flex items-center gap-2 text-emerald-600"><Plus size={13} />Cadastrar novo</span></SelectItem>
+                <SelectItem value="new"><span className="flex items-center gap-2 text-brand-600"><Plus size={13} />Cadastrar novo</span></SelectItem>
               </SelectContent>
             </Select>
             {errors.custodian_id && <p className="text-red-500 text-xs">{errors.custodian_id.message}</p>}
           </div>
           {showNewCustodian && (
-            <div className="border border-emerald-200 rounded-lg p-4 space-y-3 bg-emerald-50/40">
+            <div className="border border-brand-200 rounded-lg p-4 space-y-3 bg-brand-50/40">
               <p className="text-sm font-medium text-stone-700">Novo responsável</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Nome completo *</Label><Input {...register('new_full_name')} /></div>
@@ -649,7 +649,7 @@ export function AddCustodyModal({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Registrar
             </Button>
           </DialogFooter>
@@ -721,7 +721,7 @@ export function EditCustodyModal({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={isSubmitting}>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
             </Button>
           </DialogFooter>

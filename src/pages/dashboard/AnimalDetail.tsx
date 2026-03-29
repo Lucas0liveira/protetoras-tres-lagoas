@@ -30,7 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   resgatado:        'bg-orange-50 text-orange-700 border-orange-200',
   lar_temporario:   'bg-blue-50 text-blue-700 border-blue-200',
   disponivel:       'bg-yellow-50 text-yellow-700 border-yellow-200',
-  adotado:          'bg-emerald-50 text-emerald-700 border-emerald-200',
+  adotado:          'bg-brand-50 text-brand-700 border-brand-200',
   obito:            'bg-stone-50 text-stone-500 border-stone-200',
 }
 const STATUS_LABELS: Record<string, string> = {
@@ -43,7 +43,7 @@ const SPECIES_LABELS: Record<string, string> = { canino: 'Canino', felino: 'Feli
 const EXAM_RESULT_COLORS: Record<string, string> = {
   aguardando:   'bg-yellow-50 text-yellow-700 border-yellow-200',
   reagente:     'bg-red-50 text-red-600 border-red-200',
-  nao_reagente: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  nao_reagente: 'bg-brand-50 text-brand-700 border-brand-200',
   inconclusivo: 'bg-stone-50 text-stone-500 border-stone-200',
 }
 
@@ -65,7 +65,7 @@ function Section({ icon: Icon, title, action, children }: {
     <section className="bg-white rounded-xl border border-stone-200 p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
-          <Icon size={16} className="text-emerald-600" />
+          <Icon size={16} className="text-brand-600" />
           <h2 className="font-semibold text-stone-700">{title}</h2>
         </div>
         {action}
@@ -185,7 +185,7 @@ export default function AnimalDetail() {
   if (notFound || !animal) return (
     <div className="p-8 flex flex-col items-center gap-3 text-stone-400">
       <AlertCircle size={32} /><p className="text-sm">Animal não encontrado.</p>
-      <Link to="/dashboard/animais" className="text-emerald-600 text-sm hover:underline">← Voltar</Link>
+      <Link to="/dashboard/animais" className="text-brand-600 text-sm hover:underline">← Voltar</Link>
     </div>
   )
 
@@ -201,7 +201,40 @@ export default function AnimalDetail() {
   }
 
   return (
-    <div className="flex gap-6 p-8 min-h-full">
+    <div className="flex gap-6 p-4 sm:p-8 min-h-full">
+      {/* ── Audit sidebar ───────────────────────────────────────── */}
+      <aside className="w-56 shrink-0 hidden lg:block">
+        <div className="sticky top-8">
+          <div className="bg-white rounded-xl border border-stone-200 p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock size={14} className="text-brand-600" />
+              <h3 className="text-sm font-semibold text-stone-700">Histórico de atividade</h3>
+            </div>
+            {auditLog.length === 0
+              ? <p className="text-xs text-stone-400">Sem atividades registradas.</p>
+              : <div className="relative">
+                <div className="absolute left-[7px] top-1 bottom-1 w-px bg-stone-100" />
+                <ul className="space-y-4">
+                  {auditLog.map(event => (
+                    <li key={event.id} className="flex gap-3 relative">
+                      <div className="size-4 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 mt-0.5 z-10">
+                        <AuditIcon type={event.icon} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-stone-600 leading-snug">
+                          <span className="font-medium text-stone-800">{event.actor}</span>{' '}{event.description}
+                        </p>
+                        <p className="text-[11px] text-stone-400 mt-0.5">{fmtDatetime(event.timestamp)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            }
+          </div>
+        </div>
+      </aside>
+
       {/* ── Main column ─────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 max-w-3xl">
         <Button asChild variant="ghost" size="sm" className="mb-6 text-stone-500 -ml-2">
@@ -281,12 +314,12 @@ export default function AnimalDetail() {
                   const isAdocao = c.custody_type === 'adocao'
                   return (
                     <div key={c.id} className={`rounded-lg border p-4 ${c.is_active
-                      ? isAdocao ? 'border-emerald-200 bg-emerald-50/40' : 'border-blue-200 bg-blue-50/30'
+                      ? isAdocao ? 'border-brand-200 bg-brand-50/40' : 'border-blue-200 bg-blue-50/30'
                       : 'border-stone-100 bg-stone-50 opacity-70'}`}>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline" className={`text-xs ${isAdocao ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                            <Badge variant="outline" className={`text-xs ${isAdocao ? 'bg-brand-50 text-brand-700 border-brand-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                               {CUSTODY_TYPE_LABELS[c.custody_type]}
                             </Badge>
                             {c.is_active
@@ -456,45 +489,22 @@ export default function AnimalDetail() {
         </div>
       </div>
 
-      {/* ── Audit sidebar ───────────────────────────────────────── */}
-      <aside className="w-64 shrink-0">
-        <div className="sticky top-8">
-          <div className="bg-white rounded-xl border border-stone-200 p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock size={14} className="text-emerald-600" />
-              <h3 className="text-sm font-semibold text-stone-700">Histórico de atividade</h3>
-            </div>
-            {auditLog.length === 0
-              ? <p className="text-xs text-stone-400">Sem atividades registradas.</p>
-              : <div className="relative">
-                <div className="absolute left-[7px] top-1 bottom-1 w-px bg-stone-100" />
-                <ul className="space-y-4">
-                  {auditLog.map(event => (
-                    <li key={event.id} className="flex gap-3 relative">
-                      <div className="size-4 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 mt-0.5 z-10">
-                        <AuditIcon type={event.icon} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-stone-600 leading-snug">
-                          <span className="font-medium text-stone-800">{event.actor}</span>{' '}{event.description}
-                        </p>
-                        <p className="text-[11px] text-stone-400 mt-0.5">{fmtDatetime(event.timestamp)}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            }
-          </div>
-        </div>
-      </aside>
-
       {/* ── Modals ──────────────────────────────────────────────── */}
       <EditAnimalModal open={mainModal === 'edit_animal'} onClose={() => setMainModal(null)} animal={animal}
         onUpdated={(a) => { setAnimal(a); pushAuditEvent({ id: `edit-${Date.now()}`, timestamp: new Date().toISOString(), actor: 'Você', description: 'editou os dados do animal', icon: 'paw' }); setMainModal(null) }} />
 
       <EditRescueModal open={mainModal === 'edit_rescue'} onClose={() => setMainModal(null)} animalId={animal.id} rescue={rescue}
-        onSaved={(r) => { setRescue(r); pushAuditEvent({ id: `rescue-edit-${Date.now()}`, timestamp: new Date().toISOString(), actor: 'Você', description: `${rescue ? 'editou' : 'registrou'} o resgate`, icon: 'rescue' }); setMainModal(null) }} />
+        onSaved={async (r) => {
+          const isNew = !rescue
+          setRescue(r)
+          pushAuditEvent({ id: `rescue-edit-${Date.now()}`, timestamp: new Date().toISOString(), actor: 'Você', description: `${isNew ? 'registrou' : 'editou'} o resgate`, icon: 'rescue' })
+          if (isNew && animal.status === 'pendente_resgate') {
+            await supabase.from('animals').update({ status: 'resgatado' }).eq('id', animal.id)
+            setAnimal(prev => prev ? { ...prev, status: 'resgatado' } : prev)
+            pushAuditEvent({ id: `status-auto-${Date.now()}`, timestamp: new Date().toISOString(), actor: 'Sistema', description: 'status atualizado para Resgatado', icon: 'paw' })
+          }
+          setMainModal(null)
+        }} />
 
       <AddSanitaryModal open={mainModal === 'add_sanitary'} onClose={() => setMainModal(null)} animalId={animal.id}
         onAdded={(p) => { setSanitary(prev => [p, ...prev]); pushAuditEvent({ id: `s-new-${p.id}`, timestamp: p.created_at, actor: 'Você', description: `procedimento: ${SANITARY_LABELS[p.procedure_type]}`, icon: 'syringe' }) }} />
