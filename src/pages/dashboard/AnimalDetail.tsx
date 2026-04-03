@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, PawPrint, Stethoscope, Syringe, Home,
-  Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2,
+  Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2, ExternalLink,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
@@ -26,17 +26,18 @@ import {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  pendente_resgate: 'bg-red-50 text-red-600 border-red-200',
-  resgatado:        'bg-orange-50 text-orange-700 border-orange-200',
-  lar_temporario:   'bg-blue-50 text-blue-700 border-blue-200',
-  disponivel:       'bg-yellow-50 text-yellow-700 border-yellow-200',
-  adotado:          'bg-brand-50 text-brand-700 border-brand-200',
-  obito:            'bg-stone-50 text-stone-500 border-stone-200',
+  pendente_resgate:  'bg-red-50 text-red-600 border-red-200',
+  resgatado:         'bg-orange-50 text-orange-700 border-orange-200',
+  lar_temporario:    'bg-blue-50 text-blue-700 border-blue-200',
+  disponivel:        'bg-yellow-50 text-yellow-700 border-yellow-200',
+  adotado:           'bg-brand-50 text-brand-700 border-brand-200',
+  obito:             'bg-stone-50 text-stone-500 border-stone-200',
+  dono_identificado: 'bg-violet-50 text-violet-700 border-violet-200',
 }
 const STATUS_LABELS: Record<string, string> = {
   pendente_resgate: 'Pendente resgate', resgatado: 'Resgatado',
   lar_temporario: 'Lar temporário', disponivel: 'Disponível',
-  adotado: 'Adotado', obito: 'Óbito',
+  adotado: 'Adotado', obito: 'Óbito', dono_identificado: 'Dono identificado',
 }
 const SEX_LABELS:     Record<string, string> = { macho: 'Macho', femea: 'Fêmea', indefinido: 'Indefinido' }
 const SPECIES_LABELS: Record<string, string> = { canino: 'Canino', felino: 'Felino', outro: 'Outro' }
@@ -278,12 +279,31 @@ export default function AnimalDetail() {
             </Button>}>
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
               <InfoRow label="Pelagem"             value={animal.coat_description} />
+              <InfoRow label="Cor"                 value={animal.color} />
+              <InfoRow label="Porte"               value={animal.porte ?? null} />
               <InfoRow label="Nascimento estimado" value={fmt(animal.birth_estimate)} />
+              <InfoRow label="Palavra-chave"       value={animal.palavra_chave} />
+              <InfoRow label="Acompanhante"        value={animal.acompanhante} />
+              {animal.google_drive_url && (
+                <div className="col-span-2">
+                  <p className="text-xs text-stone-400 mb-1">Fotos/Vídeos (Google Drive)</p>
+                  <a href={animal.google_drive_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-brand-600 hover:underline text-sm font-medium">
+                    <ExternalLink size={13} />Abrir pasta
+                  </a>
+                </div>
+              )}
               {rescue ? (
                 <>
                   <InfoRow label="Data do resgate"  value={fmt(rescue.rescue_date)} />
                   <InfoRow label="Resgatado por"    value={rescue.rescued_by} />
                   <InfoRow label="Local do resgate" value={rescue.rescue_location} />
+                  {rescue.rescue_lat && rescue.rescue_lng && (
+                    <div>
+                      <p className="text-xs text-stone-400 mb-0.5">Coordenadas</p>
+                      <p className="text-sm text-stone-600 font-mono">{rescue.rescue_lat.toFixed(5)}, {rescue.rescue_lng.toFixed(5)}</p>
+                    </div>
+                  )}
                   {rescue.rescue_notes && (
                     <div className="col-span-2">
                       <p className="text-xs text-stone-400 mb-0.5">Obs. do resgate</p>

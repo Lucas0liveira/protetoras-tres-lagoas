@@ -1,7 +1,7 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { PawPrint, Dog, HandHeart, Building2, Users, LogOut, Settings, Pill, AlertTriangle, X, Megaphone, Receipt, Menu } from 'lucide-react'
+import { PawPrint, Dog, HandHeart, Building2, Users, LogOut, Settings, Pill, AlertTriangle, X, Megaphone, Receipt, Menu, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/dashboard/farmacia',      label: 'Farmácia',          icon: Pill },
   { to: '/dashboard/alertas',       label: 'Alertas Urgentes',  icon: Megaphone },
   { to: '/dashboard/financeiro',    label: 'Financeiro',        icon: Receipt },
+  { to: '/dashboard/pontos',        label: 'Pontos de Coleta',  icon: MapPin },
 ]
 
 function Sidebar({ onClose }: { onClose?: () => void }) {

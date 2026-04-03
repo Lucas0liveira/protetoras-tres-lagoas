@@ -12,6 +12,7 @@ import Settings from '@/pages/dashboard/Settings'
 import Pharmacy from '@/pages/dashboard/Pharmacy'
 import AlertsPage from '@/pages/dashboard/Alerts'
 import Financeiro from '@/pages/dashboard/Financeiro'
+import CollectionPoints from '@/pages/dashboard/CollectionPoints'
 import Transparencia from '@/pages/Transparencia'
 import Contribuir from '@/pages/Contribuir'
 
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="farmacia"        element={<Pharmacy />} />
         <Route path="alertas"         element={<AlertsPage />} />
         <Route path="financeiro"      element={<Financeiro />} />
+        <Route path="pontos"          element={<CollectionPoints />} />
         <Route path="configuracoes"   element={<Settings />} />
       </Route>
     </Routes>

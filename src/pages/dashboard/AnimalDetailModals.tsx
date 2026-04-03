@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Loader2, AlertTriangle, MapPin } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type {
   Animal, AnimalRescue, SanitaryProcedure, MedicalRecord,
-  AnimalCustody, Custodian, Clinic,
+  AnimalCustody, Custodian, Clinic, PorteEnum,
 } from '@/types/database'
 
 import { Button } from '@/components/ui/button'
@@ -83,9 +83,14 @@ const editAnimalSchema = z.object({
   sex:                       z.enum(['macho', 'femea', 'indefinido']),
   breed:                     z.string().optional(),
   coat_description:          z.string().optional(),
+  color:                     z.string().optional(),
+  porte:                     z.enum(['mini', 'pequeno', 'medio', 'grande', 'gigante']).optional(),
   birth_estimate:            z.string().optional(),
   notes:                     z.string().optional(),
-  status:                    z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito']),
+  palavra_chave:             z.string().optional(),
+  acompanhante:              z.string().optional(),
+  google_drive_url:          z.string().url('URL inválida').optional().or(z.literal('')),
+  status:                    z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito', 'dono_identificado']),
   is_special_needs:          z.boolean(),
   special_needs_description: z.string().optional(),
 })
@@ -99,7 +104,10 @@ export function EditAnimalModal({
     defaultValues: {
       name: animal.name, species: animal.species, sex: animal.sex,
       breed: animal.breed ?? '', coat_description: animal.coat_description ?? '',
+      color: animal.color ?? '', porte: animal.porte ?? undefined,
       birth_estimate: animal.birth_estimate ?? '', notes: animal.notes ?? '',
+      palavra_chave: animal.palavra_chave ?? '', acompanhante: animal.acompanhante ?? '',
+      google_drive_url: animal.google_drive_url ?? '',
       status: animal.status,
       is_special_needs: animal.is_special_needs,
       special_needs_description: animal.special_needs_description ?? '',
@@ -113,7 +121,10 @@ export function EditAnimalModal({
       .update({
         ...values,
         breed: values.breed || null, coat_description: values.coat_description || null,
+        color: values.color || null, porte: values.porte || null,
         birth_estimate: values.birth_estimate || null, notes: values.notes || null,
+        palavra_chave: values.palavra_chave || null, acompanhante: values.acompanhante || null,
+        google_drive_url: values.google_drive_url || null,
         special_needs_description: values.is_special_needs ? (values.special_needs_description || null) : null,
       })
       .eq('id', animal.id).select().single()
@@ -133,6 +144,11 @@ export function EditAnimalModal({
               {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
+              <Label>Palavra-chave / apelido</Label><Input {...register('palavra_chave')} />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5">
               <Label>Espécie *</Label>
               <Select defaultValue={animal.species} onValueChange={(v) => setValue('species', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -143,8 +159,6 @@ export function EditAnimalModal({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Sexo</Label>
               <Select defaultValue={animal.sex} onValueChange={(v) => setValue('sex', v as any)}>
@@ -156,11 +170,33 @@ export function EditAnimalModal({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>Porte</Label>
+              <Select defaultValue={animal.porte ?? ''} onValueChange={(v) => setValue('porte', v as PorteEnum)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mini">Mini</SelectItem>
+                  <SelectItem value="pequeno">Pequeno</SelectItem>
+                  <SelectItem value="medio">Médio</SelectItem>
+                  <SelectItem value="grande">Grande</SelectItem>
+                  <SelectItem value="gigante">Gigante</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5"><Label>Raça</Label><Input placeholder="SRD" {...register('breed')} /></div>
+            <div className="space-y-1.5"><Label>Cor</Label><Input placeholder="Ex: caramelo" {...register('color')} /></div>
+            <div className="space-y-1.5"><Label>Pelagem</Label><Input {...register('coat_description')} /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5"><Label>Pelagem</Label><Input {...register('coat_description')} /></div>
             <div className="space-y-1.5"><Label>Nascimento estimado</Label><Input type="date" {...register('birth_estimate')} /></div>
+            <div className="space-y-1.5"><Label>Acompanhante</Label><Input {...register('acompanhante')} /></div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Link Google Drive (fotos/vídeos)</Label>
+            <Input type="url" placeholder="https://drive.google.com/..." {...register('google_drive_url')} />
+            {errors.google_drive_url && <p className="text-red-500 text-xs">{errors.google_drive_url.message}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>
@@ -172,6 +208,7 @@ export function EditAnimalModal({
                 <SelectItem value="lar_temporario">Lar temporário</SelectItem>
                 <SelectItem value="disponivel">Disponível</SelectItem>
                 <SelectItem value="adotado">Adotado</SelectItem>
+                <SelectItem value="dono_identificado">Dono identificado</SelectItem>
                 <SelectItem value="obito">Óbito</SelectItem>
               </SelectContent>
             </Select>
@@ -217,28 +254,62 @@ export function EditAnimalModal({
 // ─── EditRescueModal ──────────────────────────────────────────────────────────
 
 const rescueSchema = z.object({
-  rescue_date: z.string().min(1, 'Obrigatório'),
+  rescue_date:     z.string().min(1, 'Obrigatório'),
   rescue_location: z.string().optional(),
-  rescued_by: z.string().optional(),
-  rescue_notes: z.string().optional(),
+  rescued_by:      z.string().optional(),
+  rescue_notes:    z.string().optional(),
+  rescue_lat:      z.string().optional(),
+  rescue_lng:      z.string().optional(),
 })
 type RescueValues = z.infer<typeof rescueSchema>
 
 export function EditRescueModal({
   open, onClose, animalId, rescue, onSaved,
 }: { open: boolean; onClose: () => void; animalId: string; rescue: AnimalRescue | null; onSaved: (r: AnimalRescue) => void }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RescueValues>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<RescueValues>({
     resolver: zodResolver(rescueSchema),
     defaultValues: {
-      rescue_date: rescue?.rescue_date ?? '', rescue_location: rescue?.rescue_location ?? '',
-      rescued_by: rescue?.rescued_by ?? '', rescue_notes: rescue?.rescue_notes ?? '',
+      rescue_date:     rescue?.rescue_date ?? '',
+      rescue_location: rescue?.rescue_location ?? '',
+      rescued_by:      rescue?.rescued_by ?? '',
+      rescue_notes:    rescue?.rescue_notes ?? '',
+      rescue_lat:      rescue?.rescue_lat != null ? String(rescue.rescue_lat) : '',
+      rescue_lng:      rescue?.rescue_lng != null ? String(rescue.rescue_lng) : '',
     },
   })
+  const [geocoding, setGeocoding] = useState(false)
+  const locationValue = watch('rescue_location')
+
+  async function geocode() {
+    if (!locationValue) return
+    setGeocoding(true)
+    try {
+      const q = encodeURIComponent(`${locationValue} Três Lagoas MS Brasil`)
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`)
+      const json = await res.json()
+      if (json[0]) {
+        setValue('rescue_lat', json[0].lat)
+        setValue('rescue_lng', json[0].lon)
+        toast.success('Coordenadas preenchidas!')
+      } else {
+        toast.error('Endereço não encontrado.')
+      }
+    } catch {
+      toast.error('Erro ao geocodificar.')
+    }
+    setGeocoding(false)
+  }
 
   async function onSubmit(values: RescueValues) {
-    const payload = { animal_id: animalId, rescue_date: values.rescue_date,
-      rescue_location: values.rescue_location || null, rescued_by: values.rescued_by || null,
-      rescue_notes: values.rescue_notes || null }
+    const payload = {
+      animal_id:       animalId,
+      rescue_date:     values.rescue_date,
+      rescue_location: values.rescue_location || null,
+      rescued_by:      values.rescued_by || null,
+      rescue_notes:    values.rescue_notes || null,
+      rescue_lat:      values.rescue_lat ? parseFloat(values.rescue_lat) : null,
+      rescue_lng:      values.rescue_lng ? parseFloat(values.rescue_lng) : null,
+    }
     const { data, error } = rescue
       ? await supabase.from('animal_rescues').update(payload).eq('id', rescue.id).select().single()
       : await supabase.from('animal_rescues').insert(payload).select().single()
@@ -259,7 +330,27 @@ export function EditRescueModal({
             </div>
             <div className="space-y-1.5"><Label>Resgatado por</Label><Input {...register('rescued_by')} /></div>
           </div>
-          <div className="space-y-1.5"><Label>Local do resgate</Label><Input {...register('rescue_location')} /></div>
+          <div className="space-y-1.5">
+            <Label>Local do resgate</Label>
+            <div className="flex gap-2">
+              <Input className="flex-1" placeholder="Ex: Rua das Flores, Centro" {...register('rescue_location')} />
+              <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5"
+                onClick={geocode} disabled={geocoding || !locationValue}>
+                {geocoding ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+                Geocodificar
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-stone-500">Latitude (auto)</Label>
+              <Input placeholder="-20.7514" {...register('rescue_lat')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-stone-500">Longitude (auto)</Label>
+              <Input placeholder="-51.7008" {...register('rescue_lng')} />
+            </div>
+          </div>
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={3} {...register('rescue_notes')} /></div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
