@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,11 +7,12 @@ import { toast } from 'sonner'
 import {
   Shield, PawPrint, Search, Heart, ChevronDown, ChevronUp,
   ChevronsUpDown, Loader2, PartyPopper, X, ExternalLink, Package,
+  Menu, MapPin,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { cloudinaryUrl } from '@/lib/cloudinary'
-import type { Animal, Alert } from '@/types/database'
+import type { Animal, Alert, CollectionPoint } from '@/types/database'
 import { STATUS_ORDER } from '@/types/database'
 import { SpecialNeedsBadge } from './dashboard/SpecialNeedsBadge'
 import { AdocaoForm } from '@/components/forms/AdocaoForm'
@@ -25,18 +26,20 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
+const AnimalMap = lazy(() => import('@/components/AnimalMap'))
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PUBLIC_STATUSES = ['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado']
 
 type StatusKey = 'pendente_resgate' | 'resgatado' | 'lar_temporario' | 'disponivel' | 'adotado'
 
-const STATUS_CONFIG: Record<StatusKey, { label: string; shortLabel: string; color: string; bg: string; border: string; activeRing: string }> = {
-  pendente_resgate: { label: 'Aguardando resgate', shortLabel: 'Aguardando resgate', color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    activeRing: 'ring-red-400' },
-  resgatado:        { label: 'Recém resgatado',    shortLabel: 'Recém resgatados',   color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', activeRing: 'ring-orange-400' },
-  lar_temporario:   { label: 'Lar temporário',     shortLabel: 'Em lar temporário',  color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   activeRing: 'ring-blue-400' },
-  disponivel:       { label: 'Disponível',         shortLabel: 'Disponíveis',        color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', activeRing: 'ring-yellow-400' },
-  adotado:          { label: 'Adotado! 🎉',        shortLabel: 'Adotados',           color: 'text-brand-700',  bg: 'bg-brand-50',  border: 'border-brand-300',  activeRing: 'ring-brand-400' },
+const STATUS_CONFIG: Record<StatusKey, { label: string; shortLabel: string; color: string; bg: string; border: string; activeTab: string }> = {
+  pendente_resgate: { label: 'Aguardando resgate', shortLabel: 'Aguardando resgate', color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    activeTab: 'border-red-500 text-red-600' },
+  resgatado:        { label: 'Recém resgatado',    shortLabel: 'Recém resgatados',   color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', activeTab: 'border-orange-500 text-orange-600' },
+  lar_temporario:   { label: 'Lar temporário',     shortLabel: 'Em lar temporário',  color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   activeTab: 'border-blue-500 text-blue-600' },
+  disponivel:       { label: 'Disponível',         shortLabel: 'Disponíveis',        color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', activeTab: 'border-yellow-500 text-yellow-600' },
+  adotado:          { label: 'Adotado! 🎉',        shortLabel: 'Adotados',           color: 'text-brand-700',  bg: 'bg-brand-50',  border: 'border-brand-300',  activeTab: 'border-brand-600 text-brand-700' },
 }
 
 const SEX_LABELS:     Record<string, string> = { macho: 'Macho', femea: 'Fêmea', indefinido: 'Indefinido' }
@@ -44,6 +47,31 @@ const SPECIES_LABELS: Record<string, string> = { canino: 'Canino', felino: 'Feli
 
 type SortKey = 'status' | 'name' | 'species'
 type SortDir = 'asc' | 'desc'
+
+const CARD_HEALTH_BADGES = [
+  { keys: ['castracao'],                                  label: 'Castrado',      cls: 'bg-green-50 text-green-700 border-green-200' },
+  { keys: ['vacina_v8', 'vacina_v10', 'vacina_antirabica'], label: 'Vacinado',    cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { keys: ['vermifugacao'],                               label: 'Vermifugado',   cls: 'bg-teal-50 text-teal-700 border-teal-200' },
+  { keys: ['bravecto'],                                   label: 'Antiparasit.',  cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { keys: ['coleira_leishmaniose'],                       label: 'Coleira Leish', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+]
+
+const NAV_LINKS = [
+  { href: 'animais',  label: 'Animais' },
+  { href: 'doacoes',  label: 'Doações' },
+  { href: 'mapa',     label: 'Mapa' },
+  { href: 'pontos',   label: 'Pontos de Coleta' },
+  { href: 'sobre',    label: 'Sobre' },
+]
+
+interface AnimalPin {
+  id: string; name: string; species: string
+  rescue_lat: number; rescue_lng: number; coverUrl?: string
+}
+
+function scrollTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+}
 
 // ─── Alert modal ──────────────────────────────────────────────────────────────
 
@@ -83,9 +111,9 @@ function InterestTypeSelector({ open, onClose, animal, onSelect }: {
   open: boolean; onClose: () => void; animal: Animal | null; onSelect: (t: InterestType) => void
 }) {
   const options: { type: InterestType; emoji: string; title: string; desc: string }[] = [
-    { type: 'adocao',        emoji: '🏠', title: 'Quero adotar',           desc: 'Dar um lar definitivo a um animal' },
-    { type: 'lar_temporario', emoji: '🛏️', title: 'Lar temporário',         desc: 'Acolher temporariamente até adoção' },
-    { type: 'voluntario',    emoji: '🤝', title: 'Quero ser voluntário',   desc: 'Ajudar com resgates, transporte e mais' },
+    { type: 'adocao',        emoji: '🏠', title: 'Quero adotar',            desc: 'Dar um lar definitivo a um animal' },
+    { type: 'lar_temporario', emoji: '🛏️', title: 'Lar temporário',          desc: 'Acolher temporariamente até adoção' },
+    { type: 'voluntario',    emoji: '🤝', title: 'Quero ser voluntário',    desc: 'Ajudar com resgates, transporte e mais' },
     { type: 'contribuicao',  emoji: '💰', title: 'Contribuir com despesas', desc: 'Ajudar com custos de tratamento' },
   ]
 
@@ -120,7 +148,7 @@ function InterestTypeSelector({ open, onClose, animal, onSelect }: {
   )
 }
 
-// ─── Contribuição form (simple) ───────────────────────────────────────────────
+// ─── Contribuição form ────────────────────────────────────────────────────────
 
 const contribuicaoSchema = z.object({
   full_name: z.string().min(2, 'Nome obrigatório'),
@@ -192,9 +220,15 @@ function ContribuicaoModal({ open, onClose, animal }: {
 
 // ─── Animal card ──────────────────────────────────────────────────────────────
 
-function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: string | null; onHelp: (a: Animal) => void }) {
+function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
+  animal: Animal; photoUrl: string | null; procedures?: Set<string>; onHelp: (a: Animal) => void
+}) {
   const cfg = STATUS_CONFIG[animal.status as StatusKey]
   const isAdopted = animal.status === 'adotado'
+
+  const visibleBadges = procedures
+    ? CARD_HEALTH_BADGES.filter(b => b.keys.some(k => procedures.has(k)))
+    : []
 
   return (
     <div className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col relative ${
@@ -224,20 +258,29 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
         )}
       </div>
       <div className="p-4 flex flex-col flex-1">
-        <div className="flex items-start justify-between mb-2">
+        <div className="flex items-start justify-between mb-1.5">
           <h3 className={`font-semibold ${isAdopted ? 'text-brand-800' : 'text-stone-800'}`}>
             {animal.name}{isAdopted ? ' 🐾' : ''}
           </h3>
           {cfg && (
-            <Badge variant="outline" className={`text-xs ${cfg.color} ${cfg.bg} ${cfg.border}`}>
+            <Badge variant="outline" className={`text-xs shrink-0 ml-1 ${cfg.color} ${cfg.bg} ${cfg.border}`}>
               {cfg.label}
             </Badge>
           )}
         </div>
-        <p className="text-stone-400 text-xs mb-3">
+        <p className="text-stone-400 text-xs mb-2">
           {SEX_LABELS[animal.sex]} · {SPECIES_LABELS[animal.species]}
           {animal.breed ? ` · ${animal.breed}` : ''}
         </p>
+        {visibleBadges.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {visibleBadges.map(b => (
+              <span key={b.label} className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${b.cls}`}>
+                {b.label}
+              </span>
+            ))}
+          </div>
+        )}
         {animal.notes && (
           <p className="text-stone-500 text-xs mb-3 line-clamp-2">{animal.notes}</p>
         )}
@@ -279,20 +322,31 @@ function SortButton({ label, field, current, dir, onSort }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [animals,       setAnimals]       = useState<Animal[]>([])
-  const [photoMap,      setPhotoMap]      = useState<Record<string, string>>({})
-  const [counts,        setCounts]        = useState<Partial<Record<StatusKey, number>>>({})
-  const [loading,       setLoading]       = useState(true)
-  const [search,        setSearch]        = useState('')
-  const [sortKey,       setSortKey]       = useState<SortKey>('status')
-  const [sortDir,       setSortDir]       = useState<SortDir>('asc')
-  const [statusFilter,  setStatusFilter]  = useState<StatusKey | null>(null)
-  const [showAdopted,   setShowAdopted]   = useState(false)
-  const [typeSelector, setTypeSelector]   = useState(false)
-  const [activeForm, setActiveForm]       = useState<InterestType | null>(null)
-  const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null)
-  const [activeAlert,   setActiveAlert]   = useState<Alert | null>(null)
-  const [wishList,      setWishList]      = useState<string[]>([])
+  const [animals,          setAnimals]          = useState<Animal[]>([])
+  const [photoMap,         setPhotoMap]         = useState<Record<string, string>>({})
+  const [sanitaryMap,      setSanitaryMap]      = useState<Record<string, Set<string>>>({})
+  const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>([])
+  const [rescuePins,       setRescuePins]       = useState<AnimalPin[]>([])
+  const [counts,           setCounts]           = useState<Partial<Record<StatusKey, number>>>({})
+  const [loading,          setLoading]          = useState(true)
+  const [search,           setSearch]           = useState('')
+  const [sortKey,          setSortKey]          = useState<SortKey>('status')
+  const [sortDir,          setSortDir]          = useState<SortDir>('asc')
+  const [statusFilter,     setStatusFilter]     = useState<StatusKey | null>(null)
+  const [showAdopted,      setShowAdopted]      = useState(false)
+  const [typeSelector,     setTypeSelector]     = useState(false)
+  const [activeForm,       setActiveForm]       = useState<InterestType | null>(null)
+  const [selectedAnimal,   setSelectedAnimal]   = useState<Animal | null>(null)
+  const [activeAlert,      setActiveAlert]      = useState<Alert | null>(null)
+  const [wishList,         setWishList]         = useState<string[]>([])
+  const [scrolled,         setScrolled]         = useState(false)
+  const [mobileMenuOpen,   setMobileMenuOpen]   = useState(false)
+
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 8)
+    window.addEventListener('scroll', fn, { passive: true })
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
 
   useEffect(() => {
     async function loadAll() {
@@ -301,39 +355,63 @@ export default function Home() {
         { data: photoData },
         { data: alertData },
         { data: configData },
+        { data: sanitaryData },
+        { data: pointsData },
+        { data: rescueData },
       ] = await Promise.all([
         supabase.from('animals').select('*').is('deleted_at', null).in('status', PUBLIC_STATUSES),
         supabase.from('animal_photos').select('animal_id, storage_path').eq('is_cover', true),
         supabase.from('alerts').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1),
         supabase.from('site_config').select('value').eq('key', 'wish_list').single(),
+        supabase.from('sanitary_procedures').select('animal_id, procedure_type'),
+        supabase.from('collection_points').select('*').eq('is_active', true).is('deleted_at', null).order('created_at', { ascending: false }),
+        supabase.from('animal_rescues').select('animal_id, rescue_lat, rescue_lng').not('rescue_lat', 'is', null),
       ])
 
-      const animals = (animalData ?? []) as Animal[]
-      setAnimals(animals)
+      const loadedAnimals = (animalData ?? []) as Animal[]
+      setAnimals(loadedAnimals)
 
-      const map: Record<string, string> = {}
-      ;(photoData ?? []).forEach((p: { animal_id: string; storage_path: string }) => { map[p.animal_id] = p.storage_path })
-      setPhotoMap(map)
+      const pMap: Record<string, string> = {}
+      ;(photoData ?? []).forEach((p: { animal_id: string; storage_path: string }) => { pMap[p.animal_id] = p.storage_path })
+      setPhotoMap(pMap)
 
       const c: Partial<Record<StatusKey, number>> = {}
-      animals.forEach(a => {
-        if (a.status in STATUS_CONFIG) {
-          c[a.status as StatusKey] = (c[a.status as StatusKey] ?? 0) + 1
-        }
+      loadedAnimals.forEach(a => {
+        if (a.status in STATUS_CONFIG) c[a.status as StatusKey] = (c[a.status as StatusKey] ?? 0) + 1
       })
       setCounts(c)
 
+      const sMap: Record<string, Set<string>> = {}
+      ;(sanitaryData ?? []).forEach((s: { animal_id: string; procedure_type: string }) => {
+        if (!sMap[s.animal_id]) sMap[s.animal_id] = new Set()
+        sMap[s.animal_id].add(s.procedure_type)
+      })
+      setSanitaryMap(sMap)
+
+      setCollectionPoints((pointsData ?? []) as CollectionPoint[])
+
+      const rMap: Record<string, { lat: number; lng: number }> = {}
+      ;(rescueData ?? []).forEach((r: { animal_id: string; rescue_lat: number; rescue_lng: number }) => {
+        if (!rMap[r.animal_id]) rMap[r.animal_id] = { lat: r.rescue_lat, lng: r.rescue_lng }
+      })
+      const pins: AnimalPin[] = loadedAnimals
+        .filter(a => a.status === 'pendente_resgate' && rMap[a.id])
+        .map(a => ({
+          id: a.id,
+          name: a.name,
+          species: a.species,
+          rescue_lat: rMap[a.id].lat,
+          rescue_lng: rMap[a.id].lng,
+          coverUrl: pMap[a.id] ? cloudinaryUrl(pMap[a.id], 'w_200,h_150,c_fill,q_auto,f_auto') : undefined,
+        }))
+      setRescuePins(pins)
+
       if (alertData && alertData.length > 0) {
         const alert = alertData[0] as Alert
-        const key = `alert_dismissed_${alert.id}`
-        if (!sessionStorage.getItem(key)) {
-          setActiveAlert(alert)
-        }
+        if (!sessionStorage.getItem(`alert_dismissed_${alert.id}`)) setActiveAlert(alert)
       }
 
-      if (configData?.value) {
-        setWishList(configData.value as string[])
-      }
+      if (configData?.value) setWishList(configData.value as string[])
 
       setLoading(false)
     }
@@ -350,10 +428,10 @@ export default function Home() {
     else { setSortKey(field); setSortDir('asc') }
   }
 
-  function handleCounterClick(key: StatusKey) {
+  function handleTabClick(key: StatusKey) {
     setStatusFilter(prev => prev === key ? null : key)
     if (key === 'adotado') setShowAdopted(true)
-    document.getElementById('animais')?.scrollIntoView({ behavior: 'smooth' })
+    scrollTo('animais')
   }
 
   function openInterest(animal: Animal | null) {
@@ -361,8 +439,7 @@ export default function Home() {
   }
 
   function handleTypeSelected(type: InterestType) {
-    setTypeSelector(false)
-    setActiveForm(type)
+    setTypeSelector(false); setActiveForm(type)
   }
 
   function closeForm() { setActiveForm(null); setSelectedAnimal(null) }
@@ -392,99 +469,93 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      {/* Urgent alert modal */}
       {activeAlert && <UrgentAlertModal alert={activeAlert} onDismiss={dismissAlert} />}
 
-      {/* Nav */}
-      <header className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          {/* <img
-            src="/logo.svg"
-            alt="Protetoras TL"
-            className="h-8 w-8 object-contain"
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'inline' }}
-          /> */}
-          <PawPrint className="text-brand-600" size={22} />
-            <span className="hidden sm:inline font-semibold text-stone-700">Protetoras Três Lagoas</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5" onClick={() => openInterest(null)}>
-            <Heart size={13} />Quero ajudar
-          </Button>
-          <Button asChild size="sm" variant="outline"><Link to="/login">Área restrita</Link></Button>
+      {/* ─── Header ──────────────────────────────────────────────────────────── */}
+      <header className={`sticky top-0 z-20 bg-white/95 border-b border-stone-200 transition-shadow ${scrolled ? 'shadow-sm backdrop-blur-sm' : ''}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0">
+            <PawPrint className="text-brand-600" size={20} />
+            <span className="font-semibold text-stone-700 text-sm">Protetoras Três Lagoas</span>
+          </Link>
+
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-0.5">
+            {NAV_LINKS.map(({ href, label }) => (
+              <button key={href} onClick={() => scrollTo(href)}
+                className="px-3 py-1.5 text-sm text-stone-500 hover:text-stone-800 hover:bg-stone-50 rounded-lg transition-colors">
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          {/* CTA buttons */}
+          <div className="flex items-center gap-2">
+            <Button size="sm" className="hidden sm:inline-flex bg-brand-600 hover:bg-brand-700 gap-1.5" onClick={() => openInterest(null)}>
+              <Heart size={13} />Quero ajudar
+            </Button>
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+              <Link to="/login">Área restrita</Link>
+            </Button>
+            {/* Mobile hamburger */}
+            <button className="md:hidden p-2 text-stone-500 hover:text-stone-700" onClick={() => setMobileMenuOpen(v => !v)}>
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile nav drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-stone-100 bg-white px-4 py-3 space-y-1">
+            {NAV_LINKS.map(({ href, label }) => (
+              <button key={href} onClick={() => { scrollTo(href); setMobileMenuOpen(false) }}
+                className="w-full text-left px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 rounded-lg">
+                {label}
+              </button>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <Button size="sm" className="flex-1 bg-brand-600 hover:bg-brand-700 gap-1.5" onClick={() => { openInterest(null); setMobileMenuOpen(false) }}>
+                <Heart size={13} />Quero ajudar
+              </Button>
+              <Button asChild size="sm" variant="outline" className="flex-1">
+                <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Área restrita</Link>
+              </Button>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Hero */}
-      <section className="max-w-4xl mx-auto px-6 py-10 sm:py-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-full px-4 py-1.5 text-brand-700 text-sm font-medium mb-6">
-          <PawPrint size={14} />Três Lagoas, MS
-        </div>
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-stone-900 mb-5 leading-tight">
-          Animais que precisam<br className="hidden sm:block" /> de um lar cheio de amor
-        </h1>
-        <p className="text-stone-500 text-base sm:text-lg mb-8 sm:mb-10 max-w-xl mx-auto leading-relaxed">
-          Acompanhe os animais resgatados pelas Protetoras de Três Lagoas — do resgate ao lar definitivo.
-        </p>
-        <div className="flex justify-center gap-3 flex-wrap">
-          <Button size="lg" className="bg-brand-600 hover:bg-brand-700" onClick={() => {
-            document.getElementById('animais')?.scrollIntoView({ behavior: 'smooth' })
-          }}>
-            Ver animais disponíveis
-          </Button>
-          <Button variant="outline" size="lg" asChild>
-            <Link to="/contribuir"><Heart size={16} className="mr-1.5" />Fazer doação</Link>
-          </Button>
-          <Button variant="ghost" size="lg" className="text-stone-500" onClick={() => {
-            document.getElementById('doacoes')?.scrollIntoView({ behavior: 'smooth' })
-          }}>
-            <Package size={16} className="mr-1.5" />Itens aceitos
-          </Button>
-        </div>
-      </section>
-
-      {/* Status counters — clickable filters */}
-      <section className="border-t border-stone-200 bg-white">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <p className="text-center text-stone-400 text-xs uppercase tracking-widest mb-6 font-medium">
-            Situação atual — clique para filtrar
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {(Object.entries(STATUS_CONFIG) as [StatusKey, typeof STATUS_CONFIG[StatusKey]][]).map(([key, s]) => {
-              const isActive = statusFilter === key
-              return (
-                <button key={key}
-                  onClick={() => handleCounterClick(key)}
-                  className={`rounded-xl border ${s.border} ${s.bg} p-5 text-center transition-all hover:shadow-md ${
-                    isActive ? `ring-2 ${s.activeRing} ring-offset-1 shadow-md` : 'hover:scale-[1.02]'
-                  }`}>
-                  <div className={`text-4xl font-bold ${s.color} mb-1`}>
-                    {counts[key] ?? 0}
-                  </div>
-                  <div className="text-stone-500 text-xs leading-tight">{s.shortLabel}</div>
-                  {isActive && (
-                    <div className={`text-[10px] font-medium mt-1.5 ${s.color}`}>filtro ativo</div>
-                  )}
-                </button>
-              )
-            })}
+      {/* ─── Hero ────────────────────────────────────────────────────────────── */}
+      <section className="bg-white border-b border-stone-100">
+        <div className="max-w-4xl mx-auto px-6 py-12 sm:py-20 text-center">
+          <div className="inline-flex items-center gap-2 bg-brand-50 border border-brand-200 rounded-full px-4 py-1.5 text-brand-700 text-sm font-medium mb-6">
+            <PawPrint size={14} />Três Lagoas, MS
           </div>
-          {statusFilter && (
-            <div className="text-center mt-4">
-              <button onClick={() => setStatusFilter(null)}
-                className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-stone-700 underline">
-                <X size={11} />Limpar filtro
-              </button>
-            </div>
-          )}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-stone-900 mb-5 leading-tight">
+            Animais que precisam<br className="hidden sm:block" /> de um lar cheio de amor
+          </h1>
+          <p className="text-stone-500 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+            Acompanhe os animais resgatados pelas Protetoras de Três Lagoas — do resgate ao lar definitivo.
+          </p>
+          <div className="flex justify-center gap-3 flex-wrap">
+            <Button size="lg" className="bg-brand-600 hover:bg-brand-700" onClick={() => scrollTo('animais')}>
+              Ver animais disponíveis
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link to="/contribuir"><Heart size={16} className="mr-1.5" />Fazer doação</Link>
+            </Button>
+            <Button variant="ghost" size="lg" className="text-stone-500" onClick={() => scrollTo('doacoes')}>
+              <Package size={16} className="mr-1.5" />Itens aceitos
+            </Button>
+          </div>
         </div>
       </section>
 
-      {/* Wish list */}
-      {/* Animal list */}
+      {/* ─── Animals ─────────────────────────────────────────────────────────── */}
       <section id="animais" className="border-t border-stone-200">
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
             <div>
               <h2 className="text-2xl font-bold text-stone-800">
                 {statusFilter ? STATUS_CONFIG[statusFilter].shortLabel : 'Animais'}
@@ -494,6 +565,30 @@ export default function Home() {
             <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5" onClick={() => openInterest(null)}>
               <Heart size={13} />Quero ajudar
             </Button>
+          </div>
+
+          {/* Status tabs */}
+          <div className="flex overflow-x-auto gap-0 mb-5 border-b border-stone-200 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+            <button
+              onClick={() => { setStatusFilter(null); setShowAdopted(false) }}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                statusFilter === null
+                  ? 'border-stone-800 text-stone-800'
+                  : 'border-transparent text-stone-500 hover:text-stone-700'
+              }`}>
+              Todos ({animals.filter(a => a.status !== 'adotado').length})
+            </button>
+            {(Object.entries(STATUS_CONFIG) as [StatusKey, typeof STATUS_CONFIG[StatusKey]][]).map(([key, cfg]) => (
+              <button key={key}
+                onClick={() => handleTabClick(key)}
+                className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
+                  statusFilter === key
+                    ? cfg.activeTab
+                    : 'border-transparent text-stone-500 hover:text-stone-700'
+                }`}>
+                {cfg.shortLabel} ({counts[key] ?? 0})
+              </button>
+            ))}
           </div>
 
           {/* Controls */}
@@ -547,14 +642,20 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {displayed.map(a => (
-                <AnimalCard key={a.id} animal={a} photoUrl={photoMap[a.id] ?? null} onHelp={openInterest} />
+                <AnimalCard
+                  key={a.id}
+                  animal={a}
+                  photoUrl={photoMap[a.id] ?? null}
+                  procedures={sanitaryMap[a.id]}
+                  onHelp={openInterest}
+                />
               ))}
             </div>
           )}
         </div>
       </section>
 
-      {/* Donation items wishlist */}
+      {/* ─── Donation items ───────────────────────────────────────────────────── */}
       {wishList.length > 0 && (
         <section id="doacoes" className="border-t border-stone-200 bg-stone-50">
           <div className="max-w-5xl mx-auto px-6 py-10">
@@ -579,11 +680,58 @@ export default function Home() {
         </section>
       )}
 
-      {/* About */}
+      {/* ─── Map ─────────────────────────────────────────────────────────────── */}
+      <section id="mapa" className="border-t border-stone-200 bg-white">
+        <div className="max-w-5xl mx-auto px-6 py-10">
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin size={18} className="text-brand-600" />
+            <h2 className="text-xl font-bold text-stone-800">Animais aguardando resgate</h2>
+          </div>
+          <p className="text-stone-500 text-sm mb-6">
+            Localizações dos animais resgatados que ainda aguardam cuidados ou lar temporário.
+          </p>
+          <Suspense fallback={<div className="h-[360px] rounded-2xl bg-stone-100 animate-pulse" />}>
+            <AnimalMap pins={rescuePins} />
+          </Suspense>
+        </div>
+      </section>
+
+      {/* ─── Collection points ───────────────────────────────────────────────── */}
+      {collectionPoints.length > 0 && (
+        <section id="pontos" className="border-t border-stone-200 bg-stone-50">
+          <div className="max-w-5xl mx-auto px-6 py-10">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin size={18} className="text-brand-600" />
+              <h2 className="text-xl font-bold text-stone-800">Pontos de coleta de doações</h2>
+            </div>
+            <p className="text-stone-500 text-sm mb-6">Deixe doações de itens nesses locais parceiros.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {collectionPoints.map(pt => (
+                <div key={pt.id} className="bg-white rounded-xl border border-stone-200 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
+                      <MapPin size={14} className="text-brand-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-stone-800 text-sm">{pt.name}</p>
+                      <p className="text-stone-500 text-xs mt-0.5">
+                        {pt.address}{pt.neighborhood ? ` — ${pt.neighborhood}` : ''}
+                      </p>
+                      {pt.notes && <p className="text-stone-400 text-xs mt-1 leading-relaxed">{pt.notes}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── About ───────────────────────────────────────────────────────────── */}
       <section id="sobre" className="border-t border-stone-200 bg-white">
-        <div className="max-w-3xl mx-auto px-6 py-20">
-          <div className="flex items-start gap-3 mb-6">
-            <Shield className="text-brand-600 mt-1" size={20} />
+        <div className="max-w-3xl mx-auto px-6 py-16">
+          <div className="flex items-start gap-3 mb-5">
+            <Shield className="text-brand-600 mt-1 shrink-0" size={20} />
             <h2 className="text-2xl font-bold text-stone-800">Sobre o projeto</h2>
           </div>
           <p className="text-stone-500 leading-relaxed">
@@ -605,25 +753,10 @@ export default function Home() {
         animal={selectedAnimal}
         onSelect={handleTypeSelected}
       />
-      <AdocaoForm
-        open={activeForm === 'adocao'}
-        onClose={closeForm}
-        animal={selectedAnimal}
-      />
-      <LarTemporarioForm
-        open={activeForm === 'lar_temporario'}
-        onClose={closeForm}
-        animal={selectedAnimal}
-      />
-      <VoluntarioForm
-        open={activeForm === 'voluntario'}
-        onClose={closeForm}
-      />
-      <ContribuicaoModal
-        open={activeForm === 'contribuicao'}
-        onClose={closeForm}
-        animal={selectedAnimal}
-      />
+      <AdocaoForm open={activeForm === 'adocao'} onClose={closeForm} animal={selectedAnimal} />
+      <LarTemporarioForm open={activeForm === 'lar_temporario'} onClose={closeForm} animal={selectedAnimal} />
+      <VoluntarioForm open={activeForm === 'voluntario'} onClose={closeForm} />
+      <ContribuicaoModal open={activeForm === 'contribuicao'} onClose={closeForm} animal={selectedAnimal} />
     </div>
   )
 }
