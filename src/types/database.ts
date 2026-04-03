@@ -2,7 +2,8 @@
 
 export type SpeciesEnum            = 'canino' | 'felino' | 'outro'
 export type SexEnum                = 'macho' | 'femea' | 'indefinido'
-export type AnimalStatusEnum       = 'pendente_resgate' | 'resgatado' | 'lar_temporario' | 'disponivel' | 'adotado' | 'obito'
+export type AnimalStatusEnum       = 'pendente_resgate' | 'resgatado' | 'lar_temporario' | 'disponivel' | 'adotado' | 'obito' | 'dono_identificado'
+export type PorteEnum              = 'mini' | 'pequeno' | 'medio' | 'grande' | 'gigante'
 export type VisitTypeEnum          = 'emergencia' | 'rotina' | 'retorno' | 'cirurgia' | 'outro'
 export type ExamResultEnum         = 'reagente' | 'nao_reagente' | 'aguardando' | 'inconclusivo' | 'outro'
 export type CustodyTypeEnum        = 'lar_temporario' | 'adocao'
@@ -24,6 +25,11 @@ export interface Animal {
   status: AnimalStatusEnum
   is_special_needs: boolean
   special_needs_description: string | null
+  porte: PorteEnum | null
+  color: string | null
+  google_drive_url: string | null
+  palavra_chave: string | null
+  acompanhante: string | null
   created_by: string | null; updated_by: string | null
   created_at: string; updated_at: string; deleted_at: string | null
 }
@@ -31,6 +37,7 @@ export interface Animal {
 export interface AnimalRescue {
   id: string; animal_id: string; rescue_date: string; rescue_location: string | null
   rescue_notes: string | null; rescued_by: string | null; created_by: string | null
+  rescue_lat: number | null; rescue_lng: number | null
   created_at: string; updated_at: string
 }
 
@@ -125,8 +132,15 @@ export interface FinancialRecord {
   created_by: string | null; created_at: string
 }
 
+export interface CollectionPoint {
+  id: string; name: string; address: string; neighborhood: string | null
+  notes: string | null; is_active: boolean; created_by: string | null
+  created_at: string; updated_at: string; deleted_at: string | null
+}
+
 // ─── Status sort order ────────────────────────────────────────────────────────
 
 export const STATUS_ORDER: Record<AnimalStatusEnum, number> = {
-  pendente_resgate: 0, resgatado: 1, lar_temporario: 2, disponivel: 3, adotado: 4, obito: 5,
+  pendente_resgate: 0, resgatado: 1, lar_temporario: 2, disponivel: 3,
+  adotado: 4, obito: 5, dono_identificado: 6,
 }
