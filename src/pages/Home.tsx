@@ -59,7 +59,7 @@ const CARD_HEALTH_BADGES = [
 const NAV_LINKS = [
   { href: 'animais',  label: 'Animais' },
   { href: 'doacoes',  label: 'Doações' },
-  { href: 'mapa',     label: 'Mapa' },
+  // { href: 'mapa',     label: 'Mapa' },
   { href: 'pontos',   label: 'Pontos de Coleta' },
   { href: 'sobre',    label: 'Sobre' },
 ]
@@ -681,7 +681,7 @@ export default function Home() {
       )}
 
       {/* ─── Map ─────────────────────────────────────────────────────────────── */}
-      <section id="mapa" className="border-t border-stone-200 bg-white">
+      <section id="mapa" className="border-t border-stone-200 bg-white hidden">
         <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="flex items-center gap-2 mb-2">
             <MapPin size={18} className="text-brand-600" />

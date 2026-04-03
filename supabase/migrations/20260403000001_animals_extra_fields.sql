@@ -29,6 +29,6 @@ AS $$
   SELECT status::text, COUNT(*)::bigint
   FROM animals
   WHERE deleted_at IS NULL
-    AND status NOT IN ('obito', 'dono_identificado')
+    AND status::text NOT IN ('obito', 'dono_identificado')
   GROUP BY status;
 $$;

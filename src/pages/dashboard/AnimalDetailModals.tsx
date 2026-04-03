@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -89,7 +89,7 @@ const editAnimalSchema = z.object({
   notes:                     z.string().optional(),
   palavra_chave:             z.string().optional(),
   acompanhante:              z.string().optional(),
-  google_drive_url:          z.string().url('URL inválida').optional().or(z.literal('')),
+  google_drive_url:          z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
   status:                    z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito', 'dono_identificado']),
   is_special_needs:          z.boolean(),
   special_needs_description: z.string().optional(),
@@ -254,7 +254,7 @@ export function EditAnimalModal({
 // ─── EditRescueModal ──────────────────────────────────────────────────────────
 
 const rescueSchema = z.object({
-  rescue_date:     z.string().min(1, 'Obrigatório'),
+  rescue_date:     z.string().optional(),
   rescue_location: z.string().optional(),
   rescued_by:      z.string().optional(),
   rescue_notes:    z.string().optional(),
@@ -266,7 +266,7 @@ type RescueValues = z.infer<typeof rescueSchema>
 export function EditRescueModal({
   open, onClose, animalId, rescue, onSaved,
 }: { open: boolean; onClose: () => void; animalId: string; rescue: AnimalRescue | null; onSaved: (r: AnimalRescue) => void }) {
-  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<RescueValues>({
+  const { register, handleSubmit, watch, setValue, formState: { isSubmitting } } = useForm<RescueValues>({
     resolver: zodResolver(rescueSchema),
     defaultValues: {
       rescue_date:     rescue?.rescue_date ?? '',
@@ -303,7 +303,7 @@ export function EditRescueModal({
   async function onSubmit(values: RescueValues) {
     const payload = {
       animal_id:       animalId,
-      rescue_date:     values.rescue_date,
+      rescue_date:     values.rescue_date || null,
       rescue_location: values.rescue_location || null,
       rescued_by:      values.rescued_by || null,
       rescue_notes:    values.rescue_notes || null,
@@ -325,8 +325,7 @@ export function EditRescueModal({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Data do resgate *</Label><Input type="date" {...register('rescue_date')} />
-              {errors.rescue_date && <p className="text-red-500 text-xs">{errors.rescue_date.message}</p>}
+              <Label>Data do resgate</Label><Input type="date" {...register('rescue_date')} />
             </div>
             <div className="space-y-1.5"><Label>Resgatado por</Label><Input {...register('rescued_by')} /></div>
           </div>

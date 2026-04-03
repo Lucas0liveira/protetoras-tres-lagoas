@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS collection_points (
 -- Auto-update updated_at
 CREATE TRIGGER set_updated_at_collection_points
   BEFORE UPDATE ON collection_points
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 -- RLS
 ALTER TABLE collection_points ENABLE ROW LEVEL SECURITY;

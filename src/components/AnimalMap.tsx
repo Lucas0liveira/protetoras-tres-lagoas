@@ -7,7 +7,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 
-delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
 
 interface AnimalPin {
@@ -32,8 +32,8 @@ export default function AnimalMap({ pins }: AnimalMapProps) {
     return (
       <div className="h-[400px] md:h-[360px] rounded-2xl border border-stone-200 bg-stone-50 flex flex-col items-center justify-center gap-3 text-stone-400">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-        <p className="text-sm">Nenhum animal com localização cadastrada</p>
-        <p className="text-xs text-stone-300">As coordenadas são preenchidas ao registrar um resgate</p>
+        <p className="text-sm">Nenhum animal pendente de resgate com localização</p>
+        <p className="text-xs text-stone-300">Informe o local ao cadastrar um animal como pendente de resgate</p>
       </div>
     )
   }

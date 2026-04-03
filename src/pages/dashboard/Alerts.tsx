@@ -19,9 +19,9 @@ import {
 const alertSchema = z.object({
   title:       z.string().min(1, 'Título obrigatório'),
   body:        z.string().min(1, 'Mensagem obrigatória'),
-  link_url:    z.string().url('URL inválida').optional().or(z.literal('')),
+  link_url:    z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
   link_label:  z.string().optional(),
-  image_url:   z.string().url('URL inválida').optional().or(z.literal('')),
+  image_url:   z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
 })
 type AlertValues = z.infer<typeof alertSchema>
 

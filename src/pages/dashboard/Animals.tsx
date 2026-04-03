@@ -55,7 +55,7 @@ const HEALTH_BADGES = [
   { key: 'coleira_leishmaniose', label: 'Coleira Leish', color: 'bg-amber-100 text-amber-700' },
 ] as const
 
-type SortField = 'status' | 'name' | 'species' | 'created_at'
+type SortField = 'status' | 'name' | 'species' | 'created_at' | 'acompanhante'
 type SortDir   = 'asc' | 'desc'
 
 // ─── Sort header button ───────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ const animalSchema = z.object({
   notes: z.string().optional(),
   palavra_chave: z.string().optional(),
   acompanhante: z.string().optional(),
-  google_drive_url: z.string().url('URL inválida').optional().or(z.literal('')),
+  google_drive_url: z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
   status: z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito', 'dono_identificado']),
   rescue_date: z.string().optional(),
   rescue_location: z.string().optional(),
@@ -393,7 +393,8 @@ export default function Animals() {
       if (sortField === 'status')      cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
       else if (sortField === 'name')   cmp = a.name.localeCompare(b.name, 'pt-BR')
       else if (sortField === 'species') cmp = a.species.localeCompare(b.species)
-      else if (sortField === 'created_at') cmp = a.created_at.localeCompare(b.created_at)
+      else if (sortField === 'created_at')   cmp = a.created_at.localeCompare(b.created_at)
+      else if (sortField === 'acompanhante') cmp = (a.acompanhante ?? '').localeCompare(b.acompanhante ?? '', 'pt-BR')
       return sortDir === 'asc' ? cmp : -cmp
     })
     return { sorted, hiddenCount: hidden.length }
@@ -449,7 +450,7 @@ export default function Animals() {
                   <SortTh label="Status"     field="status"     current={sortField} dir={sortDir} onSort={handleSort} />
                   <th className="text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Saúde</th>
                   <th className="hidden lg:table-cell text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Custódia atual</th>
-                  <th className="hidden xl:table-cell text-left px-4 py-3 text-stone-500 font-medium text-xs uppercase tracking-wide">Acompanhante</th>
+                  <th className="hidden xl:table-cell"><SortTh label="Acompanhante" field="acompanhante" current={sortField} dir={sortDir} onSort={handleSort} /></th>
                   <SortTh label="Cadastrado" field="created_at" current={sortField} dir={sortDir} onSort={handleSort} />
                 </tr>
               </thead>

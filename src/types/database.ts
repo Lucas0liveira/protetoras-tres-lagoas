@@ -35,7 +35,7 @@ export interface Animal {
 }
 
 export interface AnimalRescue {
-  id: string; animal_id: string; rescue_date: string; rescue_location: string | null
+  id: string; animal_id: string; rescue_date: string | null; rescue_location: string | null
   rescue_notes: string | null; rescued_by: string | null; created_by: string | null
   rescue_lat: number | null; rescue_lng: number | null
   created_at: string; updated_at: string
