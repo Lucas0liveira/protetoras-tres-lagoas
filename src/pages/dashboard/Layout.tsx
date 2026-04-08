@@ -9,7 +9,7 @@ const NAV = [
   { to: '/dashboard/animais',       label: 'Animais',           icon: Dog },
   { to: '/dashboard/custodios',     label: 'Adotantes & Lares', icon: HandHeart },
   { to: '/dashboard/clinicas',      label: 'Clínicas',          icon: Building2 },
-  { to: '/dashboard/voluntarios',   label: 'Voluntários',       icon: Users },
+  { to: '/dashboard/voluntarios',   label: 'Formulários & Equipe', icon: Users },
   { to: '/dashboard/farmacia',      label: 'Farmácia',          icon: Pill },
   { to: '/dashboard/alertas',       label: 'Alertas Urgentes',  icon: Megaphone },
   { to: '/dashboard/financeiro',    label: 'Financeiro',        icon: Receipt },
