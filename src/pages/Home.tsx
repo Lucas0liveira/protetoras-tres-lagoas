@@ -1,30 +1,40 @@
-import { lazy, Suspense, useEffect, useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { toast } from 'sonner'
 import {
-  Shield, PawPrint, Search, Heart, ChevronDown, ChevronUp,
-  ChevronsUpDown, Loader2, PartyPopper, X, ExternalLink, Package,
-  Menu, MapPin,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  ExternalLink,
+  Heart,
+  Loader2,
+  MapPin,
+  Menu,
+  Package,
+  PartyPopper,
+  PawPrint, Search,
+  Shield,
+  X,
 } from 'lucide-react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import { z } from 'zod'
 
-import { supabase } from '@/lib/supabase'
-import { cloudinaryUrl } from '@/lib/cloudinary'
-import type { Animal, Alert, CollectionPoint } from '@/types/database'
-import { STATUS_ORDER } from '@/types/database'
-import { SpecialNeedsBadge } from './dashboard/SpecialNeedsBadge'
 import { AdocaoForm } from '@/components/forms/AdocaoForm'
 import { LarTemporarioForm } from '@/components/forms/LarTemporarioForm'
 import { VoluntarioForm } from '@/components/forms/VoluntarioForm'
+import { cloudinaryUrl } from '@/lib/cloudinary'
+import { supabase } from '@/lib/supabase'
+import type { Alert, Animal, CollectionPoint } from '@/types/database'
+import { STATUS_ORDER } from '@/types/database'
+import { SpecialNeedsBadge } from './dashboard/SpecialNeedsBadge'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const AnimalMap = lazy(() => import('@/components/AnimalMap'))
 
@@ -220,8 +230,8 @@ function ContribuicaoModal({ open, onClose, animal }: {
 
 // ─── Animal card ──────────────────────────────────────────────────────────────
 
-function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
-  animal: Animal; photoUrl: string | null; procedures?: Set<string>; onHelp: (a: Animal) => void
+function AnimalCard({ animal, photoUrl, procedures }: {
+  animal: Animal; photoUrl: string | null; procedures?: Set<string>
 }) {
   const cfg = STATUS_CONFIG[animal.status as StatusKey]
   const isAdopted = animal.status === 'adotado'
@@ -231,7 +241,7 @@ function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
     : []
 
   return (
-    <div className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col relative ${
+    <Link to={`/animais/${animal.id}`} className={`rounded-xl border overflow-hidden transition-all hover:shadow-md flex flex-col relative group ${
       isAdopted
         ? 'border-brand-300 bg-gradient-to-b from-brand-50 to-white ring-1 ring-brand-200'
         : 'border-stone-200 bg-white'
@@ -242,9 +252,9 @@ function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
       <div className={`h-44 overflow-hidden ${isAdopted ? 'bg-brand-100/60' : 'bg-stone-100'}`}>
         {photoUrl ? (
           <img
-            src={cloudinaryUrl(photoUrl, 'w_400,h_176,c_fill,q_auto,f_auto')}
+            src={cloudinaryUrl(photoUrl, 'w_400,h_176,c_fit,q_auto,f_auto')}
             alt={animal.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-300"
           />
         ) : isAdopted ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
@@ -281,15 +291,16 @@ function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
             ))}
           </div>
         )}
-        {animal.notes && (
-          <p className="text-stone-500 text-xs mb-3 line-clamp-2">{animal.notes}</p>
+        {(animal.public_description || animal.notes) && (
+          <p className="text-stone-500 text-xs mb-3 line-clamp-2">
+            {animal.public_description ?? animal.notes}
+          </p>
         )}
         <div className="mt-auto">
           {!isAdopted && (
-            <Button size="sm" variant="outline" className="w-full gap-1.5 text-brand-700 border-brand-200 hover:bg-brand-50"
-              onClick={() => onHelp(animal)}>
-              <Heart size={12} />Quero ajudar
-            </Button>
+            <div className="w-full text-center text-xs font-medium text-brand-600 py-1.5 rounded-lg border border-brand-200 bg-brand-50 group-hover:bg-brand-100 transition-colors">
+              <Heart size={11} className="inline mr-1 -mt-0.5" />Ver mais
+            </div>
           )}
           {isAdopted && (
             <div className="text-center text-xs text-brand-600 font-medium py-1">
@@ -298,7 +309,7 @@ function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
           )}
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -647,7 +658,6 @@ export default function Home() {
                   animal={a}
                   photoUrl={photoMap[a.id] ?? null}
                   procedures={sanitaryMap[a.id]}
-                  onHelp={openInterest}
                 />
               ))}
             </div>

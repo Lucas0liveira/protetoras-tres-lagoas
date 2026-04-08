@@ -15,6 +15,7 @@ import Financeiro from '@/pages/dashboard/Financeiro'
 import CollectionPoints from '@/pages/dashboard/CollectionPoints'
 import Transparencia from '@/pages/Transparencia'
 import Contribuir from '@/pages/Contribuir'
+import PublicAnimalPage from '@/pages/PublicAnimalPage'
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/animais" element={<Navigate to="/" replace />} />
       <Route path="/transparencia" element={<Transparencia />} />
       <Route path="/contribuir" element={<Contribuir />} />
+      <Route path="/animais/:id" element={<PublicAnimalPage />} />
       <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard/animais" />} />
 
       {/* protected */}
