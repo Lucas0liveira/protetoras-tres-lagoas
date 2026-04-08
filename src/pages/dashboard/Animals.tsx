@@ -105,6 +105,7 @@ const animalSchema = z.object({
   porte: z.enum(['mini', 'pequeno', 'medio', 'grande', 'gigante']).optional(),
   birth_estimate: z.string().optional(),
   notes: z.string().optional(),
+  public_description: z.string().optional(),
   palavra_chave: z.string().optional(),
   acompanhante: z.string().optional(),
   google_drive_url: z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
@@ -148,6 +149,7 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
       porte: values.porte || null,
       birth_estimate: values.birth_estimate || null,
       notes: values.notes || null,
+      public_description: values.public_description || null,
       status: values.status,
       palavra_chave: values.palavra_chave || null,
       acompanhante: values.acompanhante || null,
@@ -287,7 +289,12 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
               </div>
             </div>
           )}
-          <div className="space-y-1.5"><Label>Observações gerais</Label><Textarea rows={2} {...register('notes')} /></div>
+          <div className="space-y-1.5"><Label>Observações internas</Label><Textarea rows={2} {...register('notes')} /></div>
+          <div className="space-y-1.5 border border-brand-100 rounded-lg p-3 bg-brand-50/40">
+            <Label className="text-brand-800">Descrição pública</Label>
+            <p className="text-xs text-stone-400 mb-1">Texto cativante para a página pública. As fotos públicas podem ser adicionadas após o cadastro.</p>
+            <Textarea rows={2} placeholder="Ex: O Bolinha é um cachorrinho alegre que adora brincar..." {...register('public_description')} />
+          </div>
 
           {/* Special needs */}
           <div className="border border-purple-100 rounded-lg p-4 space-y-3 bg-purple-50/40">

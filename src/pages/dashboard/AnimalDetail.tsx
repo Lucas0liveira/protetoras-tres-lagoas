@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, PawPrint, Stethoscope, Syringe, Home,
-  Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2, ExternalLink, Archive,
+  Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2, ExternalLink, Archive, Globe,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
@@ -14,6 +14,7 @@ import type {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AnimalPhotoUpload } from './AnimalPhotoUpload'
+import { PublicPhotoGallery } from './PublicPhotoGallery'
 import { SpecialNeedsBadge } from './SpecialNeedsBadge'
 
 import {
@@ -116,7 +117,8 @@ export default function AnimalDetail() {
   const [custodians, setCustodians] = useState<Custodian[]>([])
   const [clinics,    setClinics]    = useState<Clinic[]>([])
   const [auditLog,   setAuditLog]   = useState<AuditEvent[]>([])
-  const [coverPhoto, setCoverPhoto] = useState<AnimalPhoto | null>(null)
+  const [coverPhoto, setCoverPhoto]     = useState<AnimalPhoto | null>(null)
+  const [publicPhotos, setPublicPhotos] = useState<AnimalPhoto[]>([])
 
   useEffect(() => { if (id) load() }, [id])
 
@@ -131,6 +133,7 @@ export default function AnimalDetail() {
       { data: custodiansData },
       { data: clinicsData },
       { data: photoData },
+      { data: publicPhotosData },
     ] = await Promise.all([
       supabase.from('animals').select('*').eq('id', id!).single(),
       supabase.from('animal_rescues').select('*').eq('animal_id', id!).maybeSingle(),
@@ -140,6 +143,7 @@ export default function AnimalDetail() {
       supabase.from('custodians').select('*').is('deleted_at', null).order('full_name'),
       supabase.from('clinics').select('*').is('deleted_at', null).order('name'),
       supabase.from('animal_photos').select('*').eq('animal_id', id!).eq('is_cover', true).maybeSingle(),
+      supabase.from('animal_photos').select('*').eq('animal_id', id!).eq('is_public', true).order('created_at'),
     ])
     if (animalErr || !animalData) { setNotFound(true); setLoading(false); return }
     const a = animalData as Animal
@@ -151,6 +155,7 @@ export default function AnimalDetail() {
     setCustodians((custodiansData ?? []) as Custodian[])
     setClinics((clinicsData ?? []) as Clinic[])
     setCoverPhoto(photoData as AnimalPhoto | null)
+    setPublicPhotos((publicPhotosData ?? []) as AnimalPhoto[])
     buildAuditLog(a, re, sa, mr, cu)
     setLoading(false)
   }
@@ -328,6 +333,32 @@ export default function AnimalDetail() {
                   <p className="text-sm text-stone-600">{animal.notes}</p>
                 </div>
               )}
+            </div>
+          </Section>
+
+          {/* Página Pública */}
+          <Section icon={Globe} title="Página Pública"
+            action={
+              <a href={`/animais/${animal.id}`} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-brand-600 hover:underline font-medium">
+                <ExternalLink size={12} />Ver página
+              </a>
+            }>
+            <div className="space-y-4">
+              {animal.public_description ? (
+                <div>
+                  <p className="text-xs text-stone-400 mb-1">Descrição pública</p>
+                  <p className="text-sm text-stone-700">{animal.public_description}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-stone-400 italic">Nenhuma descrição pública definida. Edite o animal para adicionar.</p>
+              )}
+              <PublicPhotoGallery
+                animalId={animal.id}
+                photos={publicPhotos}
+                onAdded={p => setPublicPhotos(prev => [...prev, p])}
+                onRemoved={id => setPublicPhotos(prev => prev.filter(p => p.id !== id))}
+              />
             </div>
           </Section>
 

@@ -22,6 +22,7 @@ export interface Profile {
 export interface Animal {
   id: string; name: string; species: SpeciesEnum; sex: SexEnum; breed: string | null
   coat_description: string | null; birth_estimate: string | null; notes: string | null
+  public_description: string | null
   status: AnimalStatusEnum
   is_special_needs: boolean
   special_needs_description: string | null
@@ -117,7 +118,7 @@ export interface Interest {
 }
 
 export interface AnimalPhoto {
-  id: string; animal_id: string; storage_path: string; is_cover: boolean
+  id: string; animal_id: string; storage_path: string; is_cover: boolean; is_public: boolean
   caption: string | null; taken_at: string | null; uploaded_by: string | null; created_at: string
 }
 

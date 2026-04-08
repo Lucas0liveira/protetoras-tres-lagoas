@@ -88,6 +88,7 @@ const editAnimalSchema = z.object({
   porte:                     z.enum(['mini', 'pequeno', 'medio', 'grande', 'gigante']).optional(),
   birth_estimate:            z.string().optional(),
   notes:                     z.string().optional(),
+  public_description:        z.string().optional(),
   palavra_chave:             z.string().optional(),
   acompanhante:              z.string().optional(),
   google_drive_url:          z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
@@ -107,6 +108,7 @@ export function EditAnimalModal({
       breed: animal.breed ?? '', coat_description: animal.coat_description ?? '',
       color: animal.color ?? '', porte: animal.porte ?? undefined,
       birth_estimate: animal.birth_estimate ?? '', notes: animal.notes ?? '',
+      public_description: animal.public_description ?? '',
       palavra_chave: animal.palavra_chave ?? '', acompanhante: animal.acompanhante ?? '',
       google_drive_url: animal.google_drive_url ?? '',
       status: animal.status,
@@ -124,6 +126,7 @@ export function EditAnimalModal({
         breed: values.breed || null, coat_description: values.coat_description || null,
         color: values.color || null, porte: values.porte || null,
         birth_estimate: values.birth_estimate || null, notes: values.notes || null,
+        public_description: values.public_description || null,
         palavra_chave: values.palavra_chave || null, acompanhante: values.acompanhante || null,
         google_drive_url: values.google_drive_url || null,
         special_needs_description: values.is_special_needs ? (values.special_needs_description || null) : null,
@@ -214,7 +217,12 @@ export function EditAnimalModal({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={3} {...register('notes')} /></div>
+          <div className="space-y-1.5"><Label>Observações internas</Label><Textarea rows={3} {...register('notes')} /></div>
+          <div className="space-y-1.5 border border-brand-100 rounded-lg p-3 bg-brand-50/40">
+            <Label className="text-brand-800">Descrição pública</Label>
+            <p className="text-xs text-stone-400 mb-1">Texto que aparece na página pública do animal. Use uma descrição cativante.</p>
+            <Textarea rows={3} placeholder="Ex: O Bolinha é um cachorrinho alegre e cheio de energia que adora brincar..." {...register('public_description')} />
+          </div>
 
           {/* Special needs */}
           <div className="border border-purple-100 rounded-lg p-4 space-y-3 bg-purple-50/40">
