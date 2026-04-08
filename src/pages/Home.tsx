@@ -242,7 +242,7 @@ function AnimalCard({ animal, photoUrl, procedures, onHelp }: {
       <div className={`h-44 overflow-hidden ${isAdopted ? 'bg-brand-100/60' : 'bg-stone-100'}`}>
         {photoUrl ? (
           <img
-            src={cloudinaryUrl(photoUrl, /*'w_400,h_176,*/'c_fill,q_auto,f_auto')}
+            src={cloudinaryUrl(photoUrl, 'w_400,h_176,c_fit,q_auto,f_auto')}
             alt={animal.name}
             className="w-full h-full object-contain"
           />
