@@ -8,7 +8,7 @@ export type VisitTypeEnum          = 'emergencia' | 'rotina' | 'retorno' | 'ciru
 export type ExamResultEnum         = 'reagente' | 'nao_reagente' | 'aguardando' | 'inconclusivo' | 'outro'
 export type CustodyTypeEnum        = 'lar_temporario' | 'adocao'
 export type CustodyEndReasonEnum   = 'devolucao_incompatibilidade' | 'devolucao_mudanca' | 'devolucao_alergia' | 'falecimento_responsavel' | 'transferencia' | 'obito_animal' | 'outro'
-export type SanitaryProcedureEnum  = 'castracao' | 'vacina_v8' | 'vacina_v10' | 'vacina_antirabica' | 'vermifugacao' | 'bravecto' | 'coleira_leishmaniose' | 'transfusao_sanguinea' | 'outro'
+export type SanitaryProcedureEnum  = 'castracao' | 'vacina_v8' | 'vacina_v10' | 'vacina_antirabica' | 'vermifugacao' | 'bravecto' | 'coleira_leishmaniose' | 'transfusao_sanguinea' | 'microchipagem' | 'outro'
 export type UserRoleEnum           = 'admin' | 'volunteer'
 export type InterestTypeEnum       = 'adocao' | 'lar_temporario' | 'contribuicao' | 'voluntario'
 export type InterestStatusEnum     = 'pendente' | 'contactado' | 'aprovado' | 'recusado'
@@ -30,6 +30,7 @@ export interface Animal {
   google_drive_url: string | null
   palavra_chave: string | null
   acompanhante: string | null
+  archive_reason: string | null
   created_by: string | null; updated_by: string | null
   created_at: string; updated_at: string; deleted_at: string | null
 }
@@ -91,7 +92,19 @@ export interface Medication {
 export interface SanitaryProcedure {
   id: string; animal_id: string; procedure_type: SanitaryProcedureEnum
   performed_date: string; next_due_date: string | null; description: string | null
+  microchip_number: string | null
   created_by: string | null; created_at: string; updated_at: string
+}
+
+export interface Colaboradora {
+  id: string; name: string; phone: string | null; email: string | null
+  notes: string | null; is_active: boolean
+  created_by: string | null; created_at: string; updated_at: string; deleted_at: string | null
+}
+
+export interface AnimalColaboradora {
+  id: string; animal_id: string; colaboradora_id: string
+  assigned_at: string; assigned_by: string | null
 }
 
 export interface Interest {

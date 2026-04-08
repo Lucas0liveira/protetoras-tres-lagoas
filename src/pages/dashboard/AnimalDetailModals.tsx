@@ -34,6 +34,7 @@ export const SANITARY_LABELS: Record<string, string> = {
   bravecto:              'Bravecto',
   coleira_leishmaniose:  'Coleira Leishmaniose',
   transfusao_sanguinea:  'Transfusão Sanguínea',
+  microchipagem:         'Microchipagem',
   outro:                 'Outro',
 }
 
@@ -366,25 +367,28 @@ export function EditRescueModal({
 // ─── AddSanitaryModal ─────────────────────────────────────────────────────────
 
 const sanitarySchema = z.object({
-  procedure_type: z.string().min(1, 'Obrigatório'),
-  performed_date: z.string().min(1, 'Obrigatório'),
-  next_due_date: z.string().optional(),
-  description: z.string().optional(),
+  procedure_type:  z.string().min(1, 'Obrigatório'),
+  performed_date:  z.string().min(1, 'Obrigatório'),
+  next_due_date:   z.string().optional(),
+  description:     z.string().optional(),
+  microchip_number: z.string().optional(),
 })
 type SanitaryValues = z.infer<typeof sanitarySchema>
 
 export function AddSanitaryModal({
   open, onClose, animalId, onAdded,
 }: { open: boolean; onClose: () => void; animalId: string; onAdded: (p: SanitaryProcedure) => void }) {
-  const { register, handleSubmit, setValue, reset, formState: { errors, isSubmitting } } = useForm<SanitaryValues>({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<SanitaryValues>({
     resolver: zodResolver(sanitarySchema),
   })
+  const procedureType = watch('procedure_type')
 
   async function onSubmit(values: SanitaryValues) {
     const { data, error } = await supabase.from('sanitary_procedures').insert({
       animal_id: animalId, procedure_type: values.procedure_type,
       performed_date: values.performed_date, next_due_date: values.next_due_date || null,
       description: values.description || null,
+      microchip_number: values.procedure_type === 'microchipagem' ? (values.microchip_number || null) : null,
     }).select().single()
     if (error) { toast.error('Erro: ' + error.message); return }
     toast.success('Procedimento registrado!')
@@ -406,6 +410,12 @@ export function AddSanitaryModal({
             </Select>
             {errors.procedure_type && <p className="text-red-500 text-xs">{errors.procedure_type.message}</p>}
           </div>
+          {procedureType === 'microchipagem' && (
+            <div className="space-y-1.5">
+              <Label>Número do microchip</Label>
+              <Input placeholder="Ex: 985112345678901" {...register('microchip_number')} />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Realizado em *</Label><Input type="date" {...register('performed_date')} />
@@ -924,6 +934,76 @@ export function EndCustodyModal({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+// ─── Archive animal modal ─────────────────────────────────────────────────────
+
+const ARCHIVE_REASONS = [
+  { value: 'erro_cadastro', label: 'Erro de cadastro' },
+  { value: 'obito',         label: 'Óbito (use também o status Óbito no animal)' },
+  { value: 'outro',         label: 'Outro' },
+]
+
+export function ArchiveAnimalModal({ open, onClose, animal, onArchived }: {
+  open: boolean; onClose: () => void
+  animal: import('@/types/database').Animal
+  onArchived: () => void
+}) {
+  const [reason,   setReason]   = useState('')
+  const [freeText, setFreeText] = useState('')
+  const [saving,   setSaving]   = useState(false)
+
+  async function handleSubmit() {
+    if (!reason) { toast.error('Selecione um motivo.'); return }
+    const archive_reason = reason === 'outro' ? freeText.trim() || 'Outro' : ARCHIVE_REASONS.find(r => r.value === reason)!.label
+    setSaving(true)
+    const { error } = await supabase.from('animals')
+      .update({ deleted_at: new Date().toISOString(), archive_reason })
+      .eq('id', animal.id)
+    setSaving(false)
+    if (error) { toast.error('Erro: ' + error.message); return }
+    toast.success(`${animal.name} arquivado.`)
+    onArchived()
+    onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-red-700">Arquivar {animal.name}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-stone-500">
+          O animal será ocultado de todas as listagens mas permanecerá no banco de dados.
+        </p>
+        <div className="space-y-2 mt-2">
+          <p className="text-sm font-medium text-stone-700">Motivo</p>
+          {ARCHIVE_REASONS.map(r => (
+            <label key={r.value} className="flex items-center gap-2 cursor-pointer text-sm text-stone-700 hover:text-stone-900">
+              <input type="radio" name="archive_reason" value={r.value}
+                checked={reason === r.value} onChange={() => setReason(r.value)}
+                className="accent-brand-600" />
+              {r.label}
+            </label>
+          ))}
+          {reason === 'outro' && (
+            <input
+              type="text"
+              value={freeText}
+              onChange={e => setFreeText(e.target.value)}
+              placeholder="Descreva o motivo..."
+              className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+          )}
+        </div>
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button className="bg-red-600 hover:bg-red-700 text-white gap-1.5" onClick={handleSubmit} disabled={saving || !reason}>
+            {saving && <Loader2 size={13} className="animate-spin" />}Arquivar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

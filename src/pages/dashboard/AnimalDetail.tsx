@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, PawPrint, Stethoscope, Syringe, Home,
-  Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2, ExternalLink,
+  Plus, Pencil, Loader2, AlertCircle, LogOut, Clock, Trash2, ExternalLink, Archive,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
@@ -19,6 +19,7 @@ import { SpecialNeedsBadge } from './SpecialNeedsBadge'
 import {
   EditAnimalModal, EditRescueModal, AddSanitaryModal, AddMedicalRecordModal,
   AddCustodyModal, EditCustodyModal, DeleteCustodyModal, EndCustodyModal,
+  ArchiveAnimalModal,
   SANITARY_LABELS, VISIT_LABELS, EXAM_RESULT_LABELS,
   CUSTODY_TYPE_LABELS, CUSTODY_END_LABELS,
 } from './AnimalDetailModals'
@@ -96,10 +97,11 @@ type CustodyAction = { type: 'edit' | 'delete' | 'end'; custody: AnimalCustody }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type MainModal = 'edit_animal' | 'edit_rescue' | 'add_sanitary' | 'add_medical' | 'add_custody' | null
+type MainModal = 'edit_animal' | 'edit_rescue' | 'add_sanitary' | 'add_medical' | 'add_custody' | 'archive' | null
 
 export default function AnimalDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
 
   const [loading, setLoading]         = useState(true)
   const [notFound, setNotFound]       = useState(false)
@@ -190,7 +192,8 @@ export default function AnimalDetail() {
     </div>
   )
 
-  const activeCustody = custody.find(c => c.is_active) ?? null
+  const activeCustody  = custody.find(c => c.is_active) ?? null
+  const microchipProc  = sanitary.find(p => p.procedure_type === 'microchipagem')
 
   const AuditIcon = ({ type }: { type: AuditEvent['icon'] }) => {
     const cls = 'size-3 text-stone-400'
@@ -266,6 +269,9 @@ export default function AnimalDetail() {
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMainModal('edit_animal')}>
                   <Pencil size={13} />Editar
                 </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-red-500 border-red-200 hover:bg-red-50" onClick={() => setMainModal('archive')}>
+                  <Archive size={13} />Arquivar
+                </Button>
               </div>
             </div>
           </div>
@@ -284,6 +290,10 @@ export default function AnimalDetail() {
               <InfoRow label="Nascimento estimado" value={fmt(animal.birth_estimate)} />
               <InfoRow label="Palavra-chave"       value={animal.palavra_chave} />
               <InfoRow label="Acompanhante"        value={animal.acompanhante} />
+              {microchipProc && (
+                <InfoRow label="Microchip"
+                  value={microchipProc.microchip_number ? `Sim — Nº ${microchipProc.microchip_number}` : 'Sim'} />
+              )}
               {animal.google_drive_url && (
                 <div className="col-span-2">
                   <p className="text-xs text-stone-400 mb-1">Fotos/Vídeos (Google Drive)</p>
@@ -408,7 +418,12 @@ export default function AnimalDetail() {
                   <tbody>
                     {sanitary.map(p => (
                       <tr key={p.id} className="border-b border-stone-50 last:border-0 hover:bg-stone-50">
-                        <td className="px-3 py-2.5 font-medium text-stone-700">{SANITARY_LABELS[p.procedure_type] ?? p.procedure_type}</td>
+                        <td className="px-3 py-2.5 font-medium text-stone-700">
+                          {SANITARY_LABELS[p.procedure_type] ?? p.procedure_type}
+                          {p.procedure_type === 'microchipagem' && p.microchip_number && (
+                            <span className="ml-2 text-xs text-stone-400 font-mono">#{p.microchip_number}</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2.5 text-stone-500">{fmt(p.performed_date)}</td>
                         <td className="px-3 py-2.5 text-stone-500">{fmt(p.next_due_date)}</td>
                         <td className="px-3 py-2.5 text-stone-400 text-xs">{p.description ?? '—'}</td>
@@ -563,6 +578,9 @@ export default function AnimalDetail() {
             setCustodyAction(null)
           }} />
       )}
+
+      <ArchiveAnimalModal open={mainModal === 'archive'} onClose={() => setMainModal(null)}
+        animal={animal} onArchived={() => navigate('/dashboard/animais')} />
 
       {custodyAction?.type === 'end' && (
         <EndCustodyModal open onClose={() => setCustodyAction(null)}
