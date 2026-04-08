@@ -26,7 +26,7 @@ const schema = z.object({
   profissao:          z.string().optional(),
   local_horario_trabalho: z.string().min(1, 'Obrigatório'),
   phone:              z.string().min(8, 'Obrigatório'),
-  email:              z.string().email('Email inválido').optional().or(z.literal('')),
+  email:              z.string().email('Email inválido'),
   // Residência
   transporte:         z.string().optional(),
   imovel_proprio:     z.string().optional(),
@@ -168,8 +168,9 @@ export function AdocaoForm({ open, onClose, animal }: {
                 {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
               </div>
               <div className="space-y-1">
-                <Label>Email</Label>
+                <Label>Email <span className="text-red-500">*</span></Label>
                 <Input type="email" {...register('email')} />
+                {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
               </div>
               <div className="space-y-1">
                 <Label>RG ou CPF</Label>
