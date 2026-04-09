@@ -4,7 +4,7 @@ import { PawPrint, ChevronLeft, ChevronRight, Heart, ArrowLeft } from 'lucide-re
 
 import { supabase } from '@/lib/supabase'
 import { cloudinaryUrl } from '@/lib/cloudinary'
-import type { Animal, AnimalPhoto, SanitaryProcedure } from '@/types/database'
+import type { Animal, AnimalPhoto } from '@/types/database'
 import { AdocaoForm } from '@/components/forms/AdocaoForm'
 import { LarTemporarioForm } from '@/components/forms/LarTemporarioForm'
 import { Button } from '@/components/ui/button'

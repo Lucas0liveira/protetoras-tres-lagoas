@@ -5,7 +5,6 @@ import { Plus, Trash2, Loader2, Globe } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { uploadToCloudinary, cloudinaryUrl } from '@/lib/cloudinary'
 import type { AnimalPhoto } from '@/types/database'
-import { Button } from '@/components/ui/button'
 
 interface Props {
   animalId: string
