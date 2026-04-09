@@ -114,7 +114,7 @@ export default function PublicAnimalPage() {
         { data: photoData },
         { data: sanitaryData },
       ] = await Promise.all([
-        supabase.from('animals').select('*').eq('id', id!).eq('deleted_at', null as any).single(),
+        supabase.from('animals').select('*').eq('id', id!).is('deleted_at', null).single(),
         supabase.from('animal_photos').select('*').eq('animal_id', id!).eq('is_public', true).order('created_at'),
         supabase.from('sanitary_procedures').select('procedure_type').eq('animal_id', id!),
       ])
