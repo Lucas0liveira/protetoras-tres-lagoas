@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from '@/components/ui/sonner'
 import { useAuth } from '@/hooks/useAuth'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -22,6 +23,8 @@ export default function App() {
   if (loading) return null
 
   return (
+    <>
+    <Toaster richColors position="top-right" />
     <Routes>
       {/* public */}
       <Route path="/" element={<Home />} />
@@ -46,5 +49,6 @@ export default function App() {
         <Route path="configuracoes"   element={<Settings />} />
       </Route>
     </Routes>
+    </>
   )
 }
