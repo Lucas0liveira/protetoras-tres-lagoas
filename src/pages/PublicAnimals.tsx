@@ -158,7 +158,7 @@ function AnimalCard({ animal, photoUrl, onHelp }: { animal: Animal; photoUrl: st
           <img
             src={cloudinaryUrl(photoUrl, 'w_400,h_176,c_fill,q_auto,f_auto')}
             alt={animal.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         ) : isAdopted ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
