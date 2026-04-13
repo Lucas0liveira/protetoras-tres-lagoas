@@ -62,20 +62,6 @@ export const CUSTODY_END_LABELS: Record<string, string> = {
   outro:                       'Outro',
 }
 
-// ─── Helper: derive animal status from custody ────────────────────────────────
-
-export async function syncAnimalStatus(
-  animalId: string,
-  custodyType: 'lar_temporario' | 'adocao' | null,
-) {
-  const status =
-    custodyType === 'adocao'        ? 'adotado'       :
-    custodyType === 'lar_temporario' ? 'lar_temporario' :
-    'disponivel'
-  await supabase.from('animals').update({ status }).eq('id', animalId)
-  return status
-}
-
 // ─── EditAnimalModal ──────────────────────────────────────────────────────────
 
 const editAnimalSchema = z.object({
@@ -95,6 +81,8 @@ const editAnimalSchema = z.object({
   status:                    z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito', 'dono_identificado']),
   is_special_needs:          z.boolean(),
   special_needs_description: z.string().optional(),
+  aceita_lar_temporario:     z.boolean(),
+  condicoes_lar:             z.string().optional(),
 })
 type EditAnimalValues = z.infer<typeof editAnimalSchema>
 
@@ -114,10 +102,13 @@ export function EditAnimalModal({
       status: animal.status,
       is_special_needs: animal.is_special_needs,
       special_needs_description: animal.special_needs_description ?? '',
+      aceita_lar_temporario: animal.aceita_lar_temporario,
+      condicoes_lar: animal.condicoes_lar ?? '',
     },
   })
 
-  const isSpecial = watch('is_special_needs')
+  const isSpecial       = watch('is_special_needs')
+  const aceitaLarTemp   = watch('aceita_lar_temporario')
 
   async function onSubmit(values: EditAnimalValues) {
     const { data, error } = await supabase.from('animals')
@@ -130,6 +121,7 @@ export function EditAnimalModal({
         palavra_chave: values.palavra_chave || null, acompanhante: values.acompanhante || null,
         google_drive_url: values.google_drive_url || null,
         special_needs_description: values.is_special_needs ? (values.special_needs_description || null) : null,
+        condicoes_lar: values.aceita_lar_temporario ? (values.condicoes_lar || null) : null,
       })
       .eq('id', animal.id).select().single()
     if (error) { toast.error('Erro: ' + error.message); return }
@@ -209,19 +201,36 @@ export function EditAnimalModal({
               <SelectContent>
                 <SelectItem value="pendente_resgate">Pendente resgate</SelectItem>
                 <SelectItem value="resgatado">Resgatado</SelectItem>
-                <SelectItem value="lar_temporario">Lar temporário</SelectItem>
                 <SelectItem value="disponivel">Disponível</SelectItem>
-                <SelectItem value="adotado">Adotado</SelectItem>
                 <SelectItem value="dono_identificado">Dono identificado</SelectItem>
                 <SelectItem value="obito">Óbito</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5"><Label>Observações internas</Label><Textarea rows={3} {...register('notes')} /></div>
-          <div className="space-y-1.5 border border-brand-100 rounded-lg p-3 bg-brand-50/40">
-            <Label className="text-brand-800">Descrição pública</Label>
-            <p className="text-xs text-stone-400 mb-1">Texto que aparece na página pública do animal. Use uma descrição cativante.</p>
-            <Textarea rows={3} placeholder="Ex: O Bolinha é um cachorrinho alegre e cheio de energia que adora brincar..." {...register('public_description')} />
+          <div className="space-y-3 border border-brand-100 rounded-lg p-3 bg-brand-50/40">
+            <div className="space-y-1.5">
+              <Label className="text-brand-800">Descrição pública</Label>
+              <p className="text-xs text-stone-400 mb-1">Texto que aparece na página pública do animal. Use uma descrição cativante.</p>
+              <Textarea rows={3} placeholder="Ex: O Bolinha é um cachorrinho alegre e cheio de energia que adora brincar..." {...register('public_description')} />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Checkbox
+                id="aceita_lar_temporario"
+                checked={aceitaLarTemp}
+                onCheckedChange={(v) => setValue('aceita_lar_temporario', !!v)}
+              />
+              <Label htmlFor="aceita_lar_temporario" className="cursor-pointer text-sm text-stone-700">
+                Aceitar interessados em lar temporário
+              </Label>
+            </div>
+            {aceitaLarTemp && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-stone-500">Condições para o lar (opcional)</Label>
+                <Input placeholder="Ex: sem outros animais, sem crianças, quintal fechado..."
+                  {...register('condicoes_lar')} />
+              </div>
+            )}
           </div>
 
           {/* Special needs */}
@@ -661,7 +670,7 @@ export function AddCustodyModal({
   open, onClose, animalId, activeCustodyId, custodians, onAdded, onCustodianCreated,
 }: {
   open: boolean; onClose: () => void; animalId: string; activeCustodyId: string | null
-  custodians: Custodian[]; onAdded: (c: AnimalCustody, newAnimalStatus: string) => void
+  custodians: Custodian[]; onAdded: (c: AnimalCustody) => void
   onCustodianCreated: (c: Custodian) => void
 }) {
   const [showNewCustodian, setShowNewCustodian] = useState(false)
@@ -693,10 +702,8 @@ export function AddCustodyModal({
       started_at: values.started_at, termo_date: values.termo_date || null, is_active: true,
     }).select('*, custodian:custodians(id,full_name,phone,email,cpf,address_street,address_neighborhood,address_city,notes)').single()
     if (error) { toast.error('Erro: ' + error.message); return }
-    // Sync animal status
-    const newStatus = await syncAnimalStatus(animalId, values.custody_type)
     toast.success('Custódia registrada!')
-    onAdded(data as AnimalCustody, newStatus)
+    onAdded(data as AnimalCustody)
     reset(); setShowNewCustodian(false); onClose()
   }
 
@@ -777,10 +784,10 @@ const editCustodySchema = z.object({
 type EditCustodyValues = z.infer<typeof editCustodySchema>
 
 export function EditCustodyModal({
-  open, onClose, custody, animalId, onUpdated,
+  open, onClose, custody, onUpdated,
 }: {
   open: boolean; onClose: () => void
-  custody: AnimalCustody; animalId: string
+  custody: AnimalCustody
   onUpdated: (c: AnimalCustody) => void
 }) {
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<EditCustodyValues>({
@@ -799,8 +806,6 @@ export function EditCustodyModal({
       .select('*, custodian:custodians(id,full_name,phone,email,cpf,address_street,address_neighborhood,address_city,notes)')
       .single()
     if (error) { toast.error('Erro: ' + error.message); return }
-    // If active, also sync animal status
-    if (custody.is_active) await syncAnimalStatus(animalId, values.custody_type)
     toast.success('Custódia atualizada!')
     onUpdated(data as AnimalCustody); onClose()
   }
@@ -842,11 +847,11 @@ export function EditCustodyModal({
 // ─── DeleteCustodyModal ───────────────────────────────────────────────────────
 
 export function DeleteCustodyModal({
-  open, onClose, custody, animalId, onDeleted,
+  open, onClose, custody, onDeleted,
 }: {
   open: boolean; onClose: () => void
-  custody: AnimalCustody; animalId: string
-  onDeleted: (id: string, newAnimalStatus: string) => void
+  custody: AnimalCustody
+  onDeleted: (id: string) => void
 }) {
   const [loading, setLoading] = useState(false)
 
@@ -854,11 +859,8 @@ export function DeleteCustodyModal({
     setLoading(true)
     const { error } = await supabase.from('animal_custody').delete().eq('id', custody.id)
     if (error) { toast.error('Erro: ' + error.message); setLoading(false); return }
-    // If was active, revert animal to disponivel
-    let newStatus = 'disponivel'
-    if (custody.is_active) newStatus = await syncAnimalStatus(animalId, null)
     toast.success('Custódia removida.')
-    onDeleted(custody.id, newStatus)
+    onDeleted(custody.id)
     setLoading(false); onClose()
   }
 
@@ -871,7 +873,6 @@ export function DeleteCustodyModal({
             <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
             <p className="text-sm text-red-700">
               Esta ação é permanente. A custódia será deletada do histórico.
-              {custody.is_active && ' O status do animal voltará para Disponível.'}
             </p>
           </div>
         </div>
@@ -896,10 +897,10 @@ const endCustodySchema = z.object({
 type EndCustodyValues = z.infer<typeof endCustodySchema>
 
 export function EndCustodyModal({
-  open, onClose, custody, animalId, onEnded,
+  open, onClose, custody, onEnded,
 }: {
-  open: boolean; onClose: () => void; custody: AnimalCustody; animalId: string
-  onEnded: (id: string, ended_at: string, end_reason: string, end_notes: string | null, newAnimalStatus: string) => void
+  open: boolean; onClose: () => void; custody: AnimalCustody
+  onEnded: (id: string, ended_at: string, end_reason: string, end_notes: string | null) => void
 }) {
   const { register, handleSubmit, setValue, reset, formState: { errors, isSubmitting } } = useForm<EndCustodyValues>({
     resolver: zodResolver(endCustodySchema),
@@ -911,9 +912,8 @@ export function EndCustodyModal({
       end_reason: values.end_reason, end_notes: values.end_notes || null,
     }).eq('id', custody.id)
     if (error) { toast.error('Erro: ' + error.message); return }
-    const newStatus = await syncAnimalStatus(animalId, null)
     toast.success('Custódia encerrada.')
-    onEnded(custody.id, values.ended_at, values.end_reason, values.end_notes || null, newStatus)
+    onEnded(custody.id, values.ended_at, values.end_reason, values.end_notes || null)
     reset(); onClose()
   }
 

@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Project docs (local planning files)
+CLAUDE.md
+docs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

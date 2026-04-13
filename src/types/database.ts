@@ -31,6 +31,8 @@ export interface Animal {
   google_drive_url: string | null
   palavra_chave: string | null
   acompanhante: string | null
+  aceita_lar_temporario: boolean
+  condicoes_lar: string | null
   archive_reason: string | null
   created_by: string | null; updated_by: string | null
   created_at: string; updated_at: string; deleted_at: string | null
@@ -148,7 +150,9 @@ export interface FinancialRecord {
 
 export interface CollectionPoint {
   id: string; name: string; address: string; neighborhood: string | null
-  notes: string | null; is_active: boolean; created_by: string | null
+  notes: string | null; is_active: boolean
+  lat: number | null; lng: number | null
+  created_by: string | null
   created_at: string; updated_at: string; deleted_at: string | null
 }
 

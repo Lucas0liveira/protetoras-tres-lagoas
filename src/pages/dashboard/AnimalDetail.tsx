@@ -582,8 +582,7 @@ export default function AnimalDetail() {
 
       <AddCustodyModal open={mainModal === 'add_custody'} onClose={() => setMainModal(null)}
         animalId={animal.id} activeCustodyId={activeCustody?.id ?? null} custodians={custodians}
-        onAdded={(c, newStatus) => {
-          setAnimal(prev => prev ? { ...prev, status: newStatus as any } : prev)
+        onAdded={(c) => {
           setCustody(prev => prev.map(x => x.is_active && x.id !== c.id ? { ...x, is_active: false, ended_at: c.started_at } : x).concat([c]).sort((a, b) => b.started_at.localeCompare(a.started_at)))
           pushAuditEvent({ id: `c-new-${c.id}`, timestamp: c.created_at, actor: 'Você', description: `${CUSTODY_TYPE_LABELS[c.custody_type]} — ${(c as any).custodian?.full_name ?? ''}`, icon: 'home' })
         }}
@@ -592,20 +591,18 @@ export default function AnimalDetail() {
       {/* Custody-specific action modals */}
       {custodyAction?.type === 'edit' && (
         <EditCustodyModal open onClose={() => setCustodyAction(null)}
-          custody={custodyAction.custody} animalId={animal.id}
+          custody={custodyAction.custody}
           onUpdated={(updated) => {
             setCustody(prev => prev.map(c => c.id === updated.id ? updated : c))
-            if (updated.is_active) setAnimal(prev => prev ? { ...prev, status: updated.custody_type === 'adocao' ? 'adotado' : 'lar_temporario' as any } : prev)
             setCustodyAction(null)
           }} />
       )}
 
       {custodyAction?.type === 'delete' && (
         <DeleteCustodyModal open onClose={() => setCustodyAction(null)}
-          custody={custodyAction.custody} animalId={animal.id}
-          onDeleted={(deletedId, newStatus) => {
+          custody={custodyAction.custody}
+          onDeleted={(deletedId) => {
             setCustody(prev => prev.filter(c => c.id !== deletedId))
-            setAnimal(prev => prev ? { ...prev, status: newStatus as any } : prev)
             setCustodyAction(null)
           }} />
       )}
@@ -615,10 +612,9 @@ export default function AnimalDetail() {
 
       {custodyAction?.type === 'end' && (
         <EndCustodyModal open onClose={() => setCustodyAction(null)}
-          custody={custodyAction.custody} animalId={animal.id}
-          onEnded={(cid, ended_at, end_reason, end_notes, newStatus) => {
+          custody={custodyAction.custody}
+          onEnded={(cid, ended_at, end_reason, end_notes) => {
             setCustody(prev => prev.map(c => c.id === cid ? { ...c, is_active: false, ended_at, end_reason: end_reason as any, end_notes } : c))
-            setAnimal(prev => prev ? { ...prev, status: newStatus as any } : prev)
             pushAuditEvent({ id: `c-end-${cid}`, timestamp: new Date().toISOString(), actor: 'Você', description: `encerrou custódia (${CUSTODY_END_LABELS[end_reason]})`, icon: 'home' })
             setCustodyAction(null)
           }} />

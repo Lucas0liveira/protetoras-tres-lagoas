@@ -42,7 +42,8 @@ const PORTE_LABELS: Record<PorteEnum, string> = {
 }
 
 // Statuses considered "inactive" — hidden by default
-const INACTIVE_STATUSES: AnimalStatusEnum[] = ['adotado', 'obito', 'dono_identificado']
+// lar_temporario is legacy (migrated to disponivel) but kept here for safety
+const INACTIVE_STATUSES: AnimalStatusEnum[] = ['lar_temporario', 'adotado', 'obito', 'dono_identificado']
 
 // Sanitary procedure health badges
 const HEALTH_BADGES = [
@@ -109,24 +110,18 @@ const animalSchema = z.object({
   palavra_chave: z.string().optional(),
   acompanhante: z.string().optional(),
   google_drive_url: z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
-  status: z.enum(['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado', 'obito', 'dono_identificado']),
+  status: z.enum(['pendente_resgate', 'resgatado', 'disponivel', 'obito', 'dono_identificado']),
   rescue_date: z.string().optional(),
   rescue_location: z.string().optional(),
   rescue_notes: z.string().optional(),
   rescued_by: z.string().optional(),
-  foster_name: z.string().optional(),
-  foster_phone: z.string().optional(),
-  foster_since: z.string().optional(),
   is_special_needs: z.boolean(),
   special_needs_description: z.string().optional(),
+  aceita_lar_temporario: z.boolean(),
+  condicoes_lar: z.string().optional(),
 }).superRefine((d, ctx) => {
   if (d.status !== 'pendente_resgate' && !d.rescue_date)
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Data do resgate obrigatória', path: ['rescue_date'] })
-  if (d.status === 'lar_temporario') {
-    if (!d.foster_name)  ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Obrigatório', path: ['foster_name'] })
-    if (!d.foster_phone) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Obrigatório', path: ['foster_phone'] })
-    if (!d.foster_since) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Obrigatório', path: ['foster_since'] })
-  }
 })
 type AnimalFormValues = z.infer<typeof animalSchema>
 
@@ -135,10 +130,11 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
 }) {
   const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<AnimalFormValues>({
     resolver: zodResolver(animalSchema),
-    defaultValues: { species: 'canino', sex: 'indefinido', status: 'resgatado', is_special_needs: false },
+    defaultValues: { species: 'canino', sex: 'indefinido', status: 'resgatado', is_special_needs: false, aceita_lar_temporario: true },
   })
-  const status    = watch('status')
-  const isSpecial = watch('is_special_needs')
+  const status        = watch('status')
+  const isSpecial     = watch('is_special_needs')
+  const aceitaLarTemp = watch('aceita_lar_temporario')
 
   async function onSubmit(values: AnimalFormValues) {
     const { data: animal, error } = await supabase.from('animals').insert({
@@ -156,6 +152,8 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
       google_drive_url: values.google_drive_url || null,
       is_special_needs: values.is_special_needs,
       special_needs_description: values.is_special_needs ? (values.special_needs_description || null) : null,
+      aceita_lar_temporario: values.aceita_lar_temporario,
+      condicoes_lar: values.aceita_lar_temporario ? (values.condicoes_lar || null) : null,
     }).select().single()
     if (error) { toast.error('Erro: ' + error.message); return }
 
@@ -165,15 +163,6 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
         rescue_location: values.rescue_location || null,
         rescue_notes: values.rescue_notes || null,
         rescued_by: values.rescued_by || null,
-      })
-    }
-    if (values.status === 'lar_temporario' && values.foster_name && values.foster_phone && values.foster_since) {
-      const { data: cust } = await supabase.from('custodians').insert({
-        full_name: values.foster_name, phone: values.foster_phone,
-      }).select().single()
-      if (cust) await supabase.from('animal_custody').insert({
-        animal_id: animal.id, custodian_id: cust.id,
-        custody_type: 'lar_temporario', started_at: values.foster_since,
       })
     }
     toast.success(`${animal.name} cadastrado!`)
@@ -252,9 +241,7 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
               <SelectContent>
                 <SelectItem value="pendente_resgate">Pendente resgate</SelectItem>
                 <SelectItem value="resgatado">Resgatado</SelectItem>
-                <SelectItem value="lar_temporario">Lar temporário</SelectItem>
                 <SelectItem value="disponivel">Disponível</SelectItem>
-                <SelectItem value="adotado">Adotado</SelectItem>
                 <SelectItem value="dono_identificado">Dono identificado</SelectItem>
                 <SelectItem value="obito">Óbito</SelectItem>
               </SelectContent>
@@ -273,27 +260,30 @@ function RegisterAnimalDialog({ open, onClose, onCreated }: {
               <div className="space-y-1.5"><Label>Obs.</Label><Textarea rows={2} {...register('rescue_notes')} /></div>
             </div>
           )}
-          {status === 'lar_temporario' && (
-            <div className="border border-blue-200 rounded-lg p-4 space-y-4 bg-blue-50/40">
-              <p className="text-sm font-medium text-stone-700">Lar temporário</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><Label>Nome do responsável *</Label><Input {...register('foster_name')} />
-                  {errors.foster_name && <p className="text-red-500 text-xs">{errors.foster_name.message}</p>}
-                </div>
-                <div className="space-y-1.5"><Label>Telefone *</Label><Input {...register('foster_phone')} />
-                  {errors.foster_phone && <p className="text-red-500 text-xs">{errors.foster_phone.message}</p>}
-                </div>
-              </div>
-              <div className="space-y-1.5"><Label>Data de entrada *</Label><Input type="date" {...register('foster_since')} />
-                {errors.foster_since && <p className="text-red-500 text-xs">{errors.foster_since.message}</p>}
-              </div>
-            </div>
-          )}
           <div className="space-y-1.5"><Label>Observações internas</Label><Textarea rows={2} {...register('notes')} /></div>
-          <div className="space-y-1.5 border border-brand-100 rounded-lg p-3 bg-brand-50/40">
-            <Label className="text-brand-800">Descrição pública</Label>
-            <p className="text-xs text-stone-400 mb-1">Texto cativante para a página pública. As fotos públicas podem ser adicionadas após o cadastro.</p>
-            <Textarea rows={2} placeholder="Ex: O Bolinha é um cachorrinho alegre que adora brincar..." {...register('public_description')} />
+          <div className="space-y-3 border border-brand-100 rounded-lg p-3 bg-brand-50/40">
+            <div className="space-y-1.5">
+              <Label className="text-brand-800">Descrição pública</Label>
+              <p className="text-xs text-stone-400 mb-1">Texto cativante para a página pública. As fotos públicas podem ser adicionadas após o cadastro.</p>
+              <Textarea rows={2} placeholder="Ex: O Bolinha é um cachorrinho alegre que adora brincar..." {...register('public_description')} />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Checkbox
+                id="reg_aceita_lar_temporario"
+                checked={aceitaLarTemp}
+                onCheckedChange={(v) => setValue('aceita_lar_temporario', !!v)}
+              />
+              <Label htmlFor="reg_aceita_lar_temporario" className="cursor-pointer text-sm text-stone-700">
+                Aceitar interessados em lar temporário
+              </Label>
+            </div>
+            {aceitaLarTemp && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-stone-500">Condições para o lar (opcional)</Label>
+                <Input placeholder="Ex: sem outros animais, sem crianças, quintal fechado..."
+                  {...register('condicoes_lar')} />
+              </div>
+            )}
           </div>
 
           {/* Special needs */}

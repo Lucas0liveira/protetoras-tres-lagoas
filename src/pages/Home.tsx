@@ -40,16 +40,14 @@ const AnimalMap = lazy(() => import('@/components/AnimalMap'))
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PUBLIC_STATUSES = ['pendente_resgate', 'resgatado', 'lar_temporario', 'disponivel', 'adotado']
+const PUBLIC_STATUSES = ['resgatado', 'disponivel', 'adotado']
 
-type StatusKey = 'pendente_resgate' | 'resgatado' | 'lar_temporario' | 'disponivel' | 'adotado'
+type StatusKey = 'resgatado' | 'disponivel' | 'adotado'
 
 const STATUS_CONFIG: Record<StatusKey, { label: string; shortLabel: string; color: string; bg: string; border: string; activeTab: string }> = {
-  pendente_resgate: { label: 'Aguardando resgate', shortLabel: 'Aguardando resgate', color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    activeTab: 'border-red-500 text-red-600' },
-  resgatado:        { label: 'Recém resgatado',    shortLabel: 'Recém resgatados',   color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', activeTab: 'border-orange-500 text-orange-600' },
-  lar_temporario:   { label: 'Lar temporário',     shortLabel: 'Em lar temporário',  color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   activeTab: 'border-blue-500 text-blue-600' },
-  disponivel:       { label: 'Disponível',         shortLabel: 'Disponíveis',        color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', activeTab: 'border-yellow-500 text-yellow-600' },
-  adotado:          { label: 'Adotado! 🎉',        shortLabel: 'Adotados',           color: 'text-brand-700',  bg: 'bg-brand-50',  border: 'border-brand-300',  activeTab: 'border-brand-600 text-brand-700' },
+  resgatado:  { label: 'Recém resgatado', shortLabel: 'Recém resgatados', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', activeTab: 'border-orange-500 text-orange-600' },
+  disponivel: { label: 'Disponível',      shortLabel: 'Disponíveis',      color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', activeTab: 'border-yellow-500 text-yellow-600' },
+  adotado:    { label: 'Adotado! 🎉',    shortLabel: 'Adotados',         color: 'text-brand-700',  bg: 'bg-brand-50',  border: 'border-brand-300',  activeTab: 'border-brand-600 text-brand-700' },
 }
 
 const SEX_LABELS:     Record<string, string> = { macho: 'Macho', femea: 'Fêmea', indefinido: 'Indefinido' }
@@ -73,11 +71,6 @@ const NAV_LINKS = [
   { href: 'pontos',   label: 'Pontos de Coleta' },
   { href: 'sobre',    label: 'Sobre' },
 ]
-
-interface AnimalPin {
-  id: string; name: string; species: string
-  rescue_lat: number; rescue_lng: number; coverUrl?: string
-}
 
 function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
@@ -337,7 +330,6 @@ export default function Home() {
   const [photoMap,         setPhotoMap]         = useState<Record<string, string>>({})
   const [sanitaryMap,      setSanitaryMap]      = useState<Record<string, Set<string>>>({})
   const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>([])
-  const [rescuePins,       setRescuePins]       = useState<AnimalPin[]>([])
   const [counts,           setCounts]           = useState<Partial<Record<StatusKey, number>>>({})
   const [loading,          setLoading]          = useState(true)
   const [search,           setSearch]           = useState('')
@@ -368,7 +360,6 @@ export default function Home() {
         { data: configData },
         { data: sanitaryData },
         { data: pointsData },
-        { data: rescueData },
       ] = await Promise.all([
         supabase.from('animals').select('*').is('deleted_at', null).in('status', PUBLIC_STATUSES),
         supabase.from('animal_photos').select('animal_id, storage_path').eq('is_cover', true),
@@ -376,7 +367,6 @@ export default function Home() {
         supabase.from('site_config').select('value').eq('key', 'wish_list').single(),
         supabase.from('sanitary_procedures').select('animal_id, procedure_type'),
         supabase.from('collection_points').select('*').eq('is_active', true).is('deleted_at', null).order('created_at', { ascending: false }),
-        supabase.from('animal_rescues').select('animal_id, rescue_lat, rescue_lng').not('rescue_lat', 'is', null),
       ])
 
       const loadedAnimals = (animalData ?? []) as Animal[]
@@ -400,22 +390,6 @@ export default function Home() {
       setSanitaryMap(sMap)
 
       setCollectionPoints((pointsData ?? []) as CollectionPoint[])
-
-      const rMap: Record<string, { lat: number; lng: number }> = {}
-      ;(rescueData ?? []).forEach((r: { animal_id: string; rescue_lat: number; rescue_lng: number }) => {
-        if (!rMap[r.animal_id]) rMap[r.animal_id] = { lat: r.rescue_lat, lng: r.rescue_lng }
-      })
-      const pins: AnimalPin[] = loadedAnimals
-        .filter(a => a.status === 'pendente_resgate' && rMap[a.id])
-        .map(a => ({
-          id: a.id,
-          name: a.name,
-          species: a.species,
-          rescue_lat: rMap[a.id].lat,
-          rescue_lng: rMap[a.id].lng,
-          coverUrl: pMap[a.id] ? cloudinaryUrl(pMap[a.id], 'w_200,h_150,c_fill,q_auto,f_auto') : undefined,
-        }))
-      setRescuePins(pins)
 
       if (alertData && alertData.length > 0) {
         const alert = alertData[0] as Alert
@@ -493,7 +467,7 @@ export default function Home() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-0.5">
-            {NAV_LINKS.map(({ href, label }) => (
+            {NAV_LINKS.filter(l => l.href !== 'pontos' || collectionPoints.length > 0).map(({ href, label }) => (
               <button key={href} onClick={() => scrollTo(href)}
                 className="px-3 py-1.5 text-sm text-stone-500 hover:text-stone-800 hover:bg-stone-50 rounded-lg transition-colors">
                 {label}
@@ -519,7 +493,7 @@ export default function Home() {
         {/* Mobile nav drawer */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-stone-100 bg-white px-4 py-3 space-y-1">
-            {NAV_LINKS.map(({ href, label }) => (
+            {NAV_LINKS.filter(l => l.href !== 'pontos' || collectionPoints.length > 0).map(({ href, label }) => (
               <button key={href} onClick={() => { scrollTo(href); setMobileMenuOpen(false) }}
                 className="w-full text-left px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 rounded-lg">
                 {label}
@@ -690,22 +664,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* ─── Map ─────────────────────────────────────────────────────────────── */}
-      <section id="mapa" className="border-t border-stone-200 bg-white hidden">
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin size={18} className="text-brand-600" />
-            <h2 className="text-xl font-bold text-stone-800">Animais aguardando resgate</h2>
-          </div>
-          <p className="text-stone-500 text-sm mb-6">
-            Localizações dos animais resgatados que ainda aguardam cuidados ou lar temporário.
-          </p>
-          <Suspense fallback={<div className="h-[360px] rounded-2xl bg-stone-100 animate-pulse" />}>
-            <AnimalMap pins={rescuePins} />
-          </Suspense>
-        </div>
-      </section>
-
       {/* ─── Collection points ───────────────────────────────────────────────── */}
       {collectionPoints.length > 0 && (
         <section id="pontos" className="border-t border-stone-200 bg-stone-50">
@@ -715,6 +673,18 @@ export default function Home() {
               <h2 className="text-xl font-bold text-stone-800">Pontos de coleta de doações</h2>
             </div>
             <p className="text-stone-500 text-sm mb-6">Deixe doações de itens nesses locais parceiros.</p>
+            {/* Map — only shown when at least one point has coordinates */}
+            {collectionPoints.some(pt => pt.lat != null) && (
+              <div className="mb-8">
+                <Suspense fallback={<div className="h-[360px] rounded-2xl bg-stone-100 animate-pulse" />}>
+                  <AnimalMap points={collectionPoints.filter(pt => pt.lat != null && pt.lng != null).map(pt => ({
+                    id: pt.id, name: pt.name, address: pt.address,
+                    neighborhood: pt.neighborhood, notes: pt.notes,
+                    lat: pt.lat!, lng: pt.lng!,
+                  }))} />
+                </Suspense>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {collectionPoints.map(pt => (
                 <div key={pt.id} className="bg-white rounded-xl border border-stone-200 p-4">

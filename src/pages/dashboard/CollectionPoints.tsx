@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Loader2, MapPin, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, MapPin, ToggleLeft, ToggleRight, Navigation } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type { CollectionPoint } from '@/types/database'
@@ -23,6 +23,8 @@ const schema = z.object({
   neighborhood: z.string().optional(),
   notes:        z.string().optional(),
   is_active:    z.boolean(),
+  lat:          z.string().optional(),
+  lng:          z.string().optional(),
 })
 type FormValues = z.infer<typeof schema>
 
@@ -38,9 +40,34 @@ function PointModal({ open, onClose, point, onSaved }: {
       neighborhood: point?.neighborhood ?? '',
       notes:        point?.notes ?? '',
       is_active:    point?.is_active ?? true,
+      lat:          point?.lat != null ? String(point.lat) : '',
+      lng:          point?.lng != null ? String(point.lng) : '',
     },
   })
-  const isActive = watch('is_active')
+  const isActive    = watch('is_active')
+  const addressVal  = watch('address')
+  const latVal      = watch('lat')
+  const [geocoding, setGeocoding] = useState(false)
+
+  async function geocode() {
+    if (!addressVal) return
+    setGeocoding(true)
+    try {
+      const q = encodeURIComponent(`${addressVal} Três Lagoas MS Brasil`)
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`)
+      const json = await res.json()
+      if (json[0]) {
+        setValue('lat', json[0].lat)
+        setValue('lng', json[0].lon)
+        toast.success('Coordenadas preenchidas!')
+      } else {
+        toast.error('Endereço não encontrado.')
+      }
+    } catch {
+      toast.error('Erro ao geocodificar.')
+    }
+    setGeocoding(false)
+  }
 
   async function onSubmit(values: FormValues) {
     const payload = {
@@ -49,6 +76,8 @@ function PointModal({ open, onClose, point, onSaved }: {
       neighborhood: values.neighborhood || null,
       notes:        values.notes || null,
       is_active:    values.is_active,
+      lat:          values.lat ? parseFloat(values.lat) : null,
+      lng:          values.lng ? parseFloat(values.lng) : null,
     }
     const { data, error } = point
       ? await supabase.from('collection_points').update(payload).eq('id', point.id).select().single()
@@ -72,8 +101,20 @@ function PointModal({ open, onClose, point, onSaved }: {
           </div>
           <div className="space-y-1.5">
             <Label>Endereço *</Label>
-            <Input placeholder="Rua, número" {...register('address')} />
+            <div className="flex gap-2">
+              <Input placeholder="Rua, número" {...register('address')} className="flex-1" />
+              <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5"
+                onClick={geocode} disabled={geocoding || !addressVal}>
+                {geocoding ? <Loader2 size={13} className="animate-spin" /> : <Navigation size={13} />}
+                {latVal ? 'Regeocodificar' : 'Geocodificar'}
+              </Button>
+            </div>
             {errors.address && <p className="text-red-500 text-xs">{errors.address.message}</p>}
+            {latVal && (
+              <p className="text-xs text-brand-600 flex items-center gap-1">
+                <MapPin size={11} />Coordenadas preenchidas — aparecerá no mapa
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Bairro</Label>

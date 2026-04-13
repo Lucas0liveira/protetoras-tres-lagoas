@@ -4,7 +4,7 @@ import { PawPrint, ChevronLeft, ChevronRight, Heart, ArrowLeft } from 'lucide-re
 
 import { supabase } from '@/lib/supabase'
 import { cloudinaryUrl } from '@/lib/cloudinary'
-import type { Animal, AnimalPhoto } from '@/types/database'
+import type { Animal, AnimalCustody, AnimalPhoto } from '@/types/database'
 import { AdocaoForm } from '@/components/forms/AdocaoForm'
 import { LarTemporarioForm } from '@/components/forms/LarTemporarioForm'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,6 @@ const PORTE_LABELS:   Record<string, string> = { mini: 'Mini', pequeno: 'Pequeno
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   pendente_resgate: { label: 'Pendente resgate', color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200' },
   resgatado:        { label: 'Em resgate',        color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
-  lar_temporario:   { label: 'Lar temporário',    color: 'text-blue-700',   bg: 'bg-blue-50',   border: 'border-blue-200' },
   disponivel:       { label: 'Disponível',         color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200' },
   adotado:          { label: 'Adotado',            color: 'text-brand-700',  bg: 'bg-brand-50',  border: 'border-brand-200' },
 }
@@ -99,12 +98,13 @@ type ActiveForm = 'adocao' | 'lar_temporario' | null
 export default function PublicAnimalPage() {
   const { id } = useParams<{ id: string }>()
 
-  const [animal,     setAnimal]     = useState<Animal | null>(null)
-  const [photos,     setPhotos]     = useState<AnimalPhoto[]>([])
-  const [procedures, setProcedures] = useState<Set<string>>(new Set())
-  const [loading,    setLoading]    = useState(true)
-  const [notFound,   setNotFound]   = useState(false)
-  const [activeForm, setActiveForm] = useState<ActiveForm>(null)
+  const [animal,         setAnimal]         = useState<Animal | null>(null)
+  const [photos,         setPhotos]         = useState<AnimalPhoto[]>([])
+  const [procedures,     setProcedures]     = useState<Set<string>>(new Set())
+  const [activeCustody,  setActiveCustody]  = useState<AnimalCustody | null>(null)
+  const [loading,        setLoading]        = useState(true)
+  const [notFound,       setNotFound]       = useState(false)
+  const [activeForm,     setActiveForm]     = useState<ActiveForm>(null)
 
   useEffect(() => {
     if (!id) return
@@ -113,15 +113,18 @@ export default function PublicAnimalPage() {
         { data: animalData, error },
         { data: photoData },
         { data: sanitaryData },
+        { data: custodyData },
       ] = await Promise.all([
         supabase.from('animals').select('*').eq('id', id!).is('deleted_at', null).single(),
         supabase.from('animal_photos').select('*').eq('animal_id', id!).eq('is_public', true).order('created_at'),
         supabase.from('sanitary_procedures').select('procedure_type').eq('animal_id', id!),
+        supabase.from('animal_custody').select('*').eq('animal_id', id!).eq('is_active', true).maybeSingle(),
       ])
       if (error || !animalData) { setNotFound(true); setLoading(false); return }
       setAnimal(animalData as Animal)
       setPhotos((photoData ?? []) as AnimalPhoto[])
       setProcedures(new Set((sanitaryData ?? []).map((s: any) => s.procedure_type)))
+      setActiveCustody(custodyData as AnimalCustody | null)
       setLoading(false)
     }
     load()
@@ -145,10 +148,12 @@ export default function PublicAnimalPage() {
     )
   }
 
-  const cfg        = STATUS_CONFIG[animal.status]
-  const isAdopted  = animal.status === 'adotado'
-  const canHelp    = !isAdopted && animal.status !== 'obito' && animal.status !== 'dono_identificado'
-  const healthBadges = HEALTH_BADGES.filter(b => b.keys.some(k => procedures.has(k)))
+  const cfg             = STATUS_CONFIG[animal.status]
+  const isAdopted       = animal.status === 'adotado' || activeCustody?.custody_type === 'adocao'
+  const hasLarTemp      = activeCustody?.custody_type === 'lar_temporario'
+  const canHelp         = animal.status !== 'obito' && animal.status !== 'dono_identificado' && !isAdopted
+  const canShowFosterCta = animal.aceita_lar_temporario && !hasLarTemp
+  const healthBadges    = HEALTH_BADGES.filter(b => b.keys.some(k => procedures.has(k)))
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">
@@ -225,20 +230,33 @@ export default function PublicAnimalPage() {
             </div>
           ) : canHelp ? (
             <div className="space-y-3">
+              {hasLarTemp && (
+                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+                  <span>🏠</span>
+                  <span>{animal.name} está em lar temporário — mas ainda pode ser adotado!</span>
+                </div>
+              )}
               <p className="text-sm font-medium text-stone-600">Quer ajudar {animal.name}?</p>
               <div className="flex flex-wrap gap-3">
                 <Button className="bg-brand-600 hover:bg-brand-700 gap-2 flex-1 sm:flex-none"
                   onClick={() => setActiveForm('adocao')}>
                   <Heart size={15} />Quero adotar
                 </Button>
-                <Button variant="outline" className="gap-2 flex-1 sm:flex-none text-blue-700 border-blue-200 hover:bg-blue-50"
-                  onClick={() => setActiveForm('lar_temporario')}>
-                  Oferecer lar temporário
-                </Button>
+                {canShowFosterCta && (
+                  <Button variant="outline" className="gap-2 flex-1 sm:flex-none text-blue-700 border-blue-200 hover:bg-blue-50"
+                    onClick={() => setActiveForm('lar_temporario')}>
+                    Oferecer lar temporário
+                  </Button>
+                )}
                 <Button asChild variant="ghost" className="text-stone-500 flex-1 sm:flex-none">
                   <Link to="/contribuir">Fazer doação</Link>
                 </Button>
               </div>
+              {canShowFosterCta && animal.condicoes_lar && (
+                <p className="text-xs text-stone-400">
+                  Condições para lar temporário: {animal.condicoes_lar}
+                </p>
+              )}
             </div>
           ) : null}
         </div>
