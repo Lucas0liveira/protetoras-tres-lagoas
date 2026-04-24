@@ -319,11 +319,9 @@ function formatAtividade(a: PanelAtividade): string {
   return `${who} removeu ${fieldLabel}`
 }
 
-function TaskPanel({ task, userId, statuses, colaboradoras, onUpdate, onToggleDone, onDelete, onClose }: {
+function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: {
   task: Tarefa
   userId: string | null
-  statuses: TarefaStatus[]
-  colaboradoras: Colaboradora[]
   onUpdate: UpdateFn
   onToggleDone: () => Promise<void>
   onDelete: () => Promise<void>
@@ -907,8 +905,6 @@ export default function Tarefas() {
         <TaskPanel
           task={selected}
           userId={userId}
-          statuses={statuses}
-          colaboradoras={colaboradoras}
           onUpdate={makeUpdateFn(selected.id)}
           onToggleDone={() => toggleDone(selected)}
           onDelete={() => deleteTask(selected.id)}

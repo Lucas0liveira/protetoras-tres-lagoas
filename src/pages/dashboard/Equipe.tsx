@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Search, Loader2, Plus, Pencil, UserCheck, UserX, Link, LinkOff } from 'lucide-react'
+import { Search, Loader2, Plus, Pencil, UserCheck, UserX, Link, Link2Off } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type { Colaboradora, Profile } from '@/types/database'
@@ -232,7 +232,7 @@ export default function Equipe() {
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium bg-stone-50 text-stone-400 border-stone-200">
-                          <LinkOff size={10} />
+                          <Link2Off size={10} />
                           Sem conta
                         </span>
                       )}
