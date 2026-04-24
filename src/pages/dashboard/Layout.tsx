@@ -1,7 +1,7 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { PawPrint, Dog, HandHeart, Building2, Users, LogOut, Settings, Pill, AlertTriangle, X, Megaphone, Receipt, Menu, MapPin } from 'lucide-react'
+import { PawPrint, Dog, HandHeart, Building2, Users, ClipboardList, CheckSquare, LogOut, Settings, Pill, AlertTriangle, X, Megaphone, Receipt, Menu, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -9,7 +9,9 @@ const NAV = [
   { to: '/dashboard/animais',       label: 'Animais',           icon: Dog },
   { to: '/dashboard/custodios',     label: 'Adotantes & Lares', icon: HandHeart },
   { to: '/dashboard/clinicas',      label: 'Clínicas',          icon: Building2 },
-  { to: '/dashboard/voluntarios',   label: 'Formulários & Equipe', icon: Users },
+  { to: '/dashboard/tarefas',        label: 'Tarefas',              icon: CheckSquare },
+  { to: '/dashboard/equipe',         label: 'Equipe',               icon: Users },
+  { to: '/dashboard/interessados',   label: 'Interessados',         icon: ClipboardList },
   { to: '/dashboard/farmacia',      label: 'Farmácia',          icon: Pill },
   { to: '/dashboard/alertas',       label: 'Alertas Urgentes',  icon: Megaphone },
   { to: '/dashboard/financeiro',    label: 'Financeiro',        icon: Receipt },

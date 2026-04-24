@@ -102,6 +102,7 @@ export interface SanitaryProcedure {
 export interface Colaboradora {
   id: string; name: string; phone: string | null; email: string | null
   notes: string | null; is_active: boolean
+  user_id: string | null
   created_by: string | null; created_at: string; updated_at: string; deleted_at: string | null
 }
 
@@ -154,6 +155,45 @@ export interface CollectionPoint {
   lat: number | null; lng: number | null
   created_by: string | null
   created_at: string; updated_at: string; deleted_at: string | null
+}
+
+// ─── Task board ───────────────────────────────────────────────────────────────
+
+export interface TarefaStatus {
+  id: string; name: string; color: string; sort_order: number; created_at: string
+}
+
+export type TarefaPriority = 'alta' | 'media' | 'baixa'
+
+export interface Tarefa {
+  id: string
+  title: string
+  responsible_id: string | null
+  status_id: string | null
+  deadline: string | null
+  priority: TarefaPriority | null
+  is_done: boolean
+  sort_order: number
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  // joined
+  responsible?: Pick<Colaboradora, 'id' | 'name'> | null
+  status?: Pick<TarefaStatus, 'id' | 'name' | 'color'> | null
+}
+
+export interface TarefaAtividade {
+  id: string; tarefa_id: string; user_id: string | null
+  field: string; old_value: string | null; new_value: string | null; created_at: string
+  user?: Pick<Profile, 'display_name'> | null
+}
+
+export interface TarefaUpdate {
+  id: string; tarefa_id: string; author_id: string | null
+  body: string; created_at: string; updated_at: string; deleted_at: string | null
+  author?: Pick<Profile, 'display_name'> | null
 }
 
 // ─── Status sort order ────────────────────────────────────────────────────────

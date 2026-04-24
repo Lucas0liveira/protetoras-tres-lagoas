@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas -name *.env* -o -name .env)",
+      "Bash(git -C /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas log --oneline -15)",
+      "Bash(wc -l /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas/src/pages/dashboard/*.tsx)",
+      "WebFetch(domain:docs.google.com)",
+      "Bash(curl -L \"https://protetorastreslagoas.my.canva.site/_assets/media/7924eada363c5b6b9df1208d8bf408d5.png\" -o public/logo.png --silent --write-out \"%{http_code} %{content_type} %{size_download}\")",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/vite build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm --version)",
+      "Bash(grep -r \"cleanup\\\\|seed\" /d/Projects/protetoras-tres-lagoas --include=*.ts --include=*.tsx --include=*.js)",
+      "Bash(grep -n \"ALTER TABLE animals\" /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas/supabase/migrations/*.sql)",
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(node node_modules/vite/bin/vite.js build)",
+      "Bash(git -C /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas add supabase/migrations/20260408000001_animal_public_fields.sql src/types/database.ts src/pages/dashboard/PublicPhotoGallery.tsx src/pages/dashboard/AnimalDetailModals.tsx src/pages/dashboard/Animals.tsx src/pages/dashboard/AnimalDetail.tsx)",
+      "Bash(git -C /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas commit -m ':*)",
+      "Bash(git -C /media/icebrain/EXTRA/Projects/protetoras-tres-lagoas add src/pages/PublicAnimalPage.tsx src/pages/Home.tsx src/App.tsx)",
+      "Bash(git filter-branch --env-filter ':*)",
+      "Bash(git stash:*)",
+      "Bash(sort -t'<' -k2)",
+      "Bash(uniq -f1)"
+    ]
+  }
+}

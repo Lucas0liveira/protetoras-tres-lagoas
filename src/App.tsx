@@ -8,12 +8,14 @@ import Animals from '@/pages/dashboard/Animals'
 import AnimalDetail from '@/pages/dashboard/AnimalDetail'
 import Custodians from '@/pages/dashboard/Custodians'
 import Clinics from '@/pages/dashboard/Clinics'
-import Volunteers from '@/pages/dashboard/Volunteers'
+import Equipe from '@/pages/dashboard/Equipe'
+import Interessados from '@/pages/dashboard/Interessados'
 import Settings from '@/pages/dashboard/Settings'
 import Pharmacy from '@/pages/dashboard/Pharmacy'
 import AlertsPage from '@/pages/dashboard/Alerts'
 import Financeiro from '@/pages/dashboard/Financeiro'
 import CollectionPoints from '@/pages/dashboard/CollectionPoints'
+import Tarefas from '@/pages/dashboard/Tarefas'
 import Transparencia from '@/pages/Transparencia'
 import Contribuir from '@/pages/Contribuir'
 import PublicAnimalPage from '@/pages/PublicAnimalPage'
@@ -41,11 +43,14 @@ export default function App() {
         <Route path="animais/:id"     element={<AnimalDetail />} />
         <Route path="custodios"       element={<Custodians />} />
         <Route path="clinicas"        element={<Clinics />} />
-        <Route path="voluntarios"     element={<Volunteers />} />
+        <Route path="equipe"          element={<Equipe />} />
+        <Route path="interessados"    element={<Interessados />} />
+        <Route path="voluntarios"     element={<Navigate to="/dashboard/interessados" replace />} />
         <Route path="farmacia"        element={<Pharmacy />} />
         <Route path="alertas"         element={<AlertsPage />} />
         <Route path="financeiro"      element={<Financeiro />} />
         <Route path="pontos"          element={<CollectionPoints />} />
+        <Route path="tarefas"         element={<Tarefas />} />
         <Route path="configuracoes"   element={<Settings />} />
       </Route>
     </Routes>
