@@ -32,10 +32,16 @@ function ClinicModal({ open, onClose, clinic, onSaved }: {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ClinicValues>({
     resolver: zodResolver(clinicSchema),
     defaultValues: {
-      name: clinic?.name ?? '', phone: clinic?.phone ?? '', address: clinic?.address ?? '',
-      contact_vet: clinic?.contact_vet ?? '', notes: clinic?.notes ?? '',
+      name: '', phone: '', address: '', contact_vet: '', notes: '',
     },
   })
+
+  useEffect(() => {
+    reset({
+      name: clinic?.name ?? '', phone: clinic?.phone ?? '', address: clinic?.address ?? '',
+      contact_vet: clinic?.contact_vet ?? '', notes: clinic?.notes ?? '',
+    })
+  }, [clinic, open])
 
   async function onSubmit(values: ClinicValues) {
     const payload = { name: values.name, phone: values.phone || null, address: values.address || null,

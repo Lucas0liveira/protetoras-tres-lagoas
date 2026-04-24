@@ -243,8 +243,12 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, fileCount, onUpdat
                 defaultValue={task.deadline ?? ''}
                 className="text-sm border border-stone-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-300 w-full"
                 onChange={async e => {
-                  const val = e.target.value || null
-                  const label = val ? new Date(val + 'T12:00:00').toLocaleDateString('pt-BR') : null
+                  const val = e.target.value
+                  if (!val) return
+                  // Only save+close once the year is fully typed (4 digits)
+                  const year = val.split('-')[0]
+                  if (year.length < 4) return
+                  const label = new Date(val + 'T12:00:00').toLocaleDateString('pt-BR')
                   await onUpdate({ deadline: val }, 'deadline', task.deadline, label)
                   closeMenu()
                 }} />
