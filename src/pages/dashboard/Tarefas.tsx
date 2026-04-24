@@ -1161,7 +1161,7 @@ export default function Tarefas() {
   ]
 
   return (
-    <div className="p-4 sm:p-8" style={'margin-bottom': '244px'}>
+    <div className="p-4 sm:p-8" style={{marginBottom: '244px'}}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-800">Tarefas</h1>
