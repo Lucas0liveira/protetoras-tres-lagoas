@@ -160,7 +160,7 @@ export interface CollectionPoint {
 // ─── Task board ───────────────────────────────────────────────────────────────
 
 export interface TarefaStatus {
-  id: string; name: string; color: string; sort_order: number; created_at: string
+  id: string; name: string; color: string; sort_order: number; marks_done: boolean; created_at: string
 }
 
 export type TarefaPriority = 'alta' | 'media' | 'baixa'
@@ -181,7 +181,7 @@ export interface Tarefa {
   deleted_at: string | null
   // joined
   responsible?: Pick<Colaboradora, 'id' | 'name'> | null
-  status?: Pick<TarefaStatus, 'id' | 'name' | 'color'> | null
+  status?: Pick<TarefaStatus, 'id' | 'name' | 'color' | 'marks_done'> | null
 }
 
 export interface TarefaAtividade {

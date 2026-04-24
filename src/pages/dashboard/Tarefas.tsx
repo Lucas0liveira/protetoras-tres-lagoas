@@ -2,8 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import {
-  Plus, Loader2, X, Send, CheckSquare, Square,
-  Settings2, Trash2, ChevronDown, ChevronUp,
+  Plus, Loader2, X, Send,
+  Settings2, Trash2, ChevronDown, ChevronUp, Calendar,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
@@ -34,9 +34,9 @@ function initials(name: string): string {
 }
 
 const PRIORITY = {
-  alta:  { label: 'Alta',  bg: '#312E81', text: 'white' },
-  media: { label: 'Média', bg: '#7C3AED', text: 'white' },
-  baixa: { label: 'Baixa', bg: '#3B82F6', text: 'white' },
+  alta:  { label: 'Alta',  bg: '#312E81' },
+  media: { label: 'Média', bg: '#7C3AED' },
+  baixa: { label: 'Baixa', bg: '#3B82F6' },
 } as const
 
 const PRESET_COLORS = [
@@ -53,9 +53,7 @@ const FIELD_LOG_LABEL: Record<string, string> = {
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
 function Avatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
-  const cls = size === 'sm'
-    ? 'w-6 h-6 text-[10px]'
-    : 'w-8 h-8 text-xs'
+  const cls = size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-xs'
   return (
     <span className={`inline-flex items-center justify-center rounded-full bg-brand-100 text-brand-700 font-bold shrink-0 ${cls}`}>
       {initials(name)}
@@ -81,14 +79,12 @@ function CellMenu({ anchor, onClose, children }: {
   }, [onClose])
 
   if (!anchor) return null
-
-  // Ensure the menu doesn't overflow the viewport
   const top = anchor.bottom + 4
   const left = Math.min(anchor.left, window.innerWidth - 200)
 
   return createPortal(
     <div ref={ref}
-      className="fixed z-[9999] bg-white border border-stone-200 rounded-lg shadow-xl py-1 min-w-[170px]"
+      className="fixed z-[9999] bg-white border border-stone-200 rounded-lg shadow-xl py-1 min-w-[180px]"
       style={{ top, left }}>
       {children}
     </div>,
@@ -105,13 +101,13 @@ type UpdateFn = (
   newLabel: string | null,
 ) => Promise<void>
 
-function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggleDone, onOpenPanel }: {
+function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete, onOpenPanel }: {
   task: Tarefa
   statuses: TarefaStatus[]
   colaboradoras: Colaboradora[]
   profileMap: Record<string, string>
   onUpdate: UpdateFn
-  onToggleDone: () => Promise<void>
+  onDelete: () => Promise<void>
   onOpenPanel: () => void
 }) {
   const [openMenu, setOpenMenu] = useState<'status' | 'priority' | 'responsible' | 'deadline' | null>(null)
@@ -127,38 +123,34 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
   const updaterName = task.updated_by ? profileMap[task.updated_by] : null
 
   return (
-    <tr className={`border-b border-stone-100 hover:bg-stone-50/60 group transition-colors ${task.is_done ? 'opacity-60' : ''}`}>
-      {/* Done checkbox */}
-      <td className="pl-4 pr-2 py-2.5 w-10">
-        <button onClick={onToggleDone}
-          className="text-stone-300 hover:text-brand-500 transition-colors mt-0.5">
-          {task.is_done
-            ? <CheckSquare size={15} className="text-brand-500" />
-            : <Square size={15} />}
-        </button>
-      </td>
+    <tr className={`border-b border-stone-100 group transition-colors ${task.is_done ? 'bg-stone-50/60 opacity-70' : 'hover:bg-stone-50/40'}`}>
 
       {/* Title — click opens panel */}
-      <td className="px-2 py-2.5 min-w-[200px]">
+      <td className="p-0 min-w-[220px]">
         <button onClick={onOpenPanel}
-          className={`text-left text-sm hover:text-brand-700 transition-colors w-full ${
+          className={`w-full text-left px-4 py-3 text-sm transition-colors hover:text-brand-700 ${
             task.is_done ? 'line-through text-stone-400' : 'text-stone-800 font-medium'
           }`}>
           {task.title}
         </button>
       </td>
 
-      {/* Responsible */}
-      <td className="px-2 py-2.5 w-40">
+      {/* Responsible — full-cell button */}
+      <td className="p-0 w-44">
         <button onClick={e => openAt(e, 'responsible')}
-          className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-800 transition-colors w-full">
-          {task.responsible
-            ? <><Avatar name={task.responsible.name} /><span className="truncate max-w-[90px]">{task.responsible.name}</span></>
-            : <span className="text-stone-300 italic">—</span>}
+          className="w-full min-h-[43px] px-3 py-2.5 flex items-center gap-2 text-xs hover:bg-stone-100 transition-colors">
+          {task.responsible ? (
+            <>
+              <Avatar name={task.responsible.name} />
+              <span className="truncate text-stone-600">{task.responsible.name}</span>
+            </>
+          ) : (
+            <span className="text-stone-300 group-hover:text-stone-400 transition-colors">+ Responsável</span>
+          )}
         </button>
         {openMenu === 'responsible' && (
           <CellMenu anchor={menuAnchor} onClose={closeMenu}>
-            <button className="w-full px-3 py-1.5 hover:bg-stone-50 text-sm text-stone-400 text-left"
+            <button className="w-full px-3 py-2 hover:bg-stone-50 text-sm text-stone-400 text-left"
               onClick={async () => {
                 await onUpdate({ responsible_id: null }, 'responsible_id', task.responsible?.name ?? null, null)
                 closeMenu()
@@ -166,7 +158,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
               Sem responsável
             </button>
             {colaboradoras.map(c => (
-              <button key={c.id} className="w-full px-3 py-1.5 hover:bg-stone-50 text-sm text-left flex items-center gap-2"
+              <button key={c.id} className="w-full px-3 py-2 hover:bg-stone-50 text-sm text-left flex items-center gap-2"
                 onClick={async () => {
                   await onUpdate({ responsible_id: c.id }, 'responsible_id', task.responsible?.name ?? null, c.name)
                   closeMenu()
@@ -178,32 +170,36 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
         )}
       </td>
 
-      {/* Status */}
-      <td className="px-2 py-2.5 w-36">
+      {/* Status — colored pill button */}
+      <td className="px-2 py-2 w-36">
         <button onClick={e => openAt(e, 'status')}
-          className="text-xs font-semibold px-2 py-1 rounded w-full text-center truncate"
+          className="text-xs font-semibold px-3 py-1.5 rounded-md w-full text-center truncate transition-opacity hover:opacity-80"
           style={{
-            backgroundColor: task.status?.color ?? '#E2E8F0',
-            color: task.status ? 'white' : '#94A3B8',
+            backgroundColor: task.status?.color ?? '#E5E7EB',
+            color: task.status ? 'white' : '#6B7280',
           }}>
-          {task.status?.name ?? '—'}
+          {task.status?.name ?? 'Sem status'}
         </button>
         {openMenu === 'status' && (
           <CellMenu anchor={menuAnchor} onClose={closeMenu}>
             {statuses.map(s => (
               <button key={s.id} className="flex items-center gap-2.5 w-full px-3 py-2 hover:bg-stone-50 text-sm"
                 onClick={async () => {
-                  await onUpdate({ status_id: s.id }, 'status_id', task.status?.name ?? null, s.name)
+                  await onUpdate(
+                    { status_id: s.id, is_done: s.marks_done },
+                    'status_id', task.status?.name ?? null, s.name,
+                  )
                   closeMenu()
                 }}>
                 <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
-                {s.name}
+                <span className="flex-1">{s.name}</span>
+                {s.marks_done && <span className="text-[10px] text-stone-400 ml-1">conclui</span>}
               </button>
             ))}
             <div className="border-t border-stone-100 mt-1 pt-1">
               <button className="w-full px-3 py-1.5 hover:bg-stone-50 text-sm text-stone-400 text-left"
                 onClick={async () => {
-                  await onUpdate({ status_id: null }, 'status_id', task.status?.name ?? null, null)
+                  await onUpdate({ status_id: null, is_done: false }, 'status_id', task.status?.name ?? null, null)
                   closeMenu()
                 }}>
                 Sem status
@@ -213,18 +209,23 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
         )}
       </td>
 
-      {/* Deadline */}
-      <td className="px-2 py-2.5 w-32">
+      {/* Deadline — full-cell button */}
+      <td className="p-0 w-34">
         <button onClick={e => openAt(e, 'deadline')}
-          className="text-xs text-stone-500 hover:text-stone-800 transition-colors">
-          {task.deadline
-            ? new Date(task.deadline + 'T12:00:00').toLocaleDateString('pt-BR')
-            : <span className="text-stone-300">—</span>}
+          className="w-full min-h-[43px] px-3 py-2.5 flex items-center gap-1.5 text-xs hover:bg-stone-100 transition-colors">
+          {task.deadline ? (
+            <>
+              <Calendar size={11} className="text-stone-400 shrink-0" />
+              <span className="text-stone-600">{new Date(task.deadline + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+            </>
+          ) : (
+            <span className="text-stone-300 group-hover:text-stone-400 transition-colors">+ Prazo</span>
+          )}
         </button>
         {openMenu === 'deadline' && (
           <CellMenu anchor={menuAnchor} onClose={closeMenu}>
-            <div className="px-3 py-2 space-y-1.5">
-              <p className="text-xs text-stone-400">Prazo</p>
+            <div className="px-3 py-2.5 space-y-2">
+              <p className="text-xs text-stone-500 font-medium">Prazo</p>
               <input type="date" autoFocus
                 defaultValue={task.deadline ?? ''}
                 className="text-sm border border-stone-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-300 w-full"
@@ -235,7 +236,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
                   closeMenu()
                 }} />
               {task.deadline && (
-                <button className="text-xs text-stone-400 hover:text-red-500 transition-colors"
+                <button className="text-xs text-stone-400 hover:text-red-500 transition-colors w-full text-left"
                   onClick={async () => {
                     await onUpdate({ deadline: null }, 'deadline', task.deadline, null)
                     closeMenu()
@@ -248,15 +249,15 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
         )}
       </td>
 
-      {/* Priority */}
-      <td className="px-2 py-2.5 w-28">
+      {/* Priority — colored pill button */}
+      <td className="px-2 py-2 w-28">
         <button onClick={e => openAt(e, 'priority')}
-          className="text-xs font-semibold px-2 py-1 rounded w-full text-center"
+          className="text-xs font-semibold px-3 py-1.5 rounded-md w-full text-center transition-opacity hover:opacity-80"
           style={{
-            backgroundColor: task.priority ? PRIORITY[task.priority].bg : '#E2E8F0',
-            color: task.priority ? 'white' : '#94A3B8',
+            backgroundColor: task.priority ? PRIORITY[task.priority].bg : '#E5E7EB',
+            color: task.priority ? 'white' : '#6B7280',
           }}>
-          {task.priority ? PRIORITY[task.priority].label : '—'}
+          {task.priority ? PRIORITY[task.priority].label : 'Prioridade'}
         </button>
         {openMenu === 'priority' && (
           <CellMenu anchor={menuAnchor} onClose={closeMenu}>
@@ -288,11 +289,21 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onToggle
       </td>
 
       {/* Last updated */}
-      <td className="px-3 py-2.5 w-36">
+      <td className="px-3 py-3 w-36">
         <div className="flex items-center gap-1.5 text-xs text-stone-400">
           {updaterName && <Avatar name={updaterName} />}
           <span>{timeAgo(task.updated_at)}</span>
         </div>
+      </td>
+
+      {/* Delete — appears on row hover */}
+      <td className="pr-3 py-2 w-10">
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          className="p-1.5 text-stone-300 hover:text-red-500 rounded transition-colors opacity-0 group-hover:opacity-100"
+          title="Excluir tarefa">
+          <Trash2 size={13} />
+        </button>
       </td>
     </tr>
   )
@@ -319,11 +330,10 @@ function formatAtividade(a: PanelAtividade): string {
   return `${who} removeu ${fieldLabel}`
 }
 
-function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: {
+function TaskPanel({ task, userId, onUpdate, onDelete, onClose }: {
   task: Tarefa
   userId: string | null
   onUpdate: UpdateFn
-  onToggleDone: () => Promise<void>
   onDelete: () => Promise<void>
   onClose: () => void
 }) {
@@ -337,7 +347,6 @@ function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: 
   const [titleDraft, setTitleDraft] = useState(task.title)
   const titleRef = useRef<HTMLInputElement>(null)
 
-  // Reset when task changes
   useEffect(() => {
     setTitleDraft(task.title)
     setEditingTitle(false)
@@ -390,32 +399,37 @@ function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: 
 
   return (
     <div className="fixed inset-0 z-30 flex justify-end" onClick={onClose}>
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/20" />
-
-      {/* Panel */}
       <div className="relative w-full max-w-[480px] h-full bg-white border-l border-stone-200 shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-stone-100 shrink-0">
-          <button onClick={onToggleDone} className="mt-1 text-stone-300 hover:text-brand-500 shrink-0 transition-colors">
-            {task.is_done ? <CheckSquare size={16} className="text-brand-500" /> : <Square size={16} />}
-          </button>
-
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 pt-0.5">
             {editingTitle ? (
               <input ref={titleRef} value={titleDraft}
                 onChange={e => setTitleDraft(e.target.value)}
                 onBlur={saveTitle}
-                onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false) } }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveTitle()
+                  if (e.key === 'Escape') { setTitleDraft(task.title); setEditingTitle(false) }
+                }}
                 className="w-full text-base font-semibold text-stone-800 border-b-2 border-brand-400 focus:outline-none bg-transparent"
                 autoFocus />
             ) : (
-              <button onClick={() => { setEditingTitle(true); setTimeout(() => titleRef.current?.focus(), 0) }}
-                className={`text-left text-base font-semibold hover:text-brand-700 transition-colors w-full ${task.is_done ? 'line-through text-stone-400' : 'text-stone-800'}`}>
+              <button
+                onClick={() => { setEditingTitle(true); setTimeout(() => titleRef.current?.focus(), 0) }}
+                className={`text-left text-base font-semibold hover:text-brand-700 transition-colors w-full ${
+                  task.is_done ? 'line-through text-stone-400' : 'text-stone-800'
+                }`}>
                 {task.title}
               </button>
+            )}
+            {task.status && (
+              <span className="inline-block mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded"
+                style={{ backgroundColor: task.status.color, color: 'white' }}>
+                {task.status.name}
+              </span>
             )}
           </div>
 
@@ -450,20 +464,19 @@ function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: 
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {loadingPanel ? (
             <div className="flex items-center justify-center py-16 text-stone-400 gap-2">
               <Loader2 size={16} className="animate-spin" /><span className="text-sm">Carregando...</span>
             </div>
           ) : tab === 'updates' ? (
             <div className="flex flex-col h-full">
-              {/* Updates list */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {updates.length === 0 && (
                   <p className="text-sm text-stone-400 italic text-center py-8">Nenhuma atualização ainda.</p>
                 )}
                 {updates.map(u => (
-                  <div key={u.id} className="bg-stone-50 rounded-lg p-3 group/upd relative">
+                  <div key={u.id} className="bg-stone-50 rounded-lg p-3 group/upd">
                     <div className="flex items-center gap-2 mb-1.5">
                       {u.author?.display_name && <Avatar name={u.author.display_name} size="md" />}
                       <div>
@@ -483,8 +496,6 @@ function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: 
                   </div>
                 ))}
               </div>
-
-              {/* New update input — pinned to bottom */}
               <div className="border-t border-stone-100 p-4 shrink-0">
                 <Textarea
                   value={newBody}
@@ -501,7 +512,6 @@ function TaskPanel({ task, userId, onUpdate, onToggleDone, onDelete, onClose }: 
               </div>
             </div>
           ) : (
-            // Atividade tab
             <div className="p-4 space-y-2">
               {atividades.length === 0 && (
                 <p className="text-sm text-stone-400 italic text-center py-8">Nenhuma atividade registrada.</p>
@@ -534,7 +544,7 @@ function ManageStatusesModal({ open, onClose, statuses, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(PRESET_COLORS[0])
-  const [pickerFor, setPickerFor] = useState<string | null>(null) // id of status whose picker is open
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
 
   useEffect(() => { setItems(statuses) }, [statuses, open])
 
@@ -577,7 +587,6 @@ function ManageStatusesModal({ open, onClose, statuses, onSaved }: {
         <div className="space-y-2 max-h-72 overflow-y-auto">
           {items.map(s => (
             <div key={s.id} className="flex items-center gap-2 group">
-              {/* Color picker toggle */}
               <div className="relative">
                 <button onClick={() => setPickerFor(pickerFor === s.id ? null : s.id)}
                   className="w-5 h-5 rounded-sm border border-stone-200 shrink-0 transition-transform hover:scale-110"
@@ -592,17 +601,19 @@ function ManageStatusesModal({ open, onClose, statuses, onSaved }: {
                   </div>
                 )}
               </div>
-
-              {/* Name input */}
               <input
                 defaultValue={s.name}
                 onBlur={e => {
                   const val = e.target.value.trim()
                   if (val && val !== s.name) updateStatus(s.id, { name: val })
                 }}
-                className="flex-1 text-sm border-b border-transparent hover:border-stone-200 focus:border-brand-300 focus:outline-none px-1 py-0.5 bg-transparent"
-              />
-
+                className="flex-1 text-sm border-b border-transparent hover:border-stone-200 focus:border-brand-300 focus:outline-none px-1 py-0.5 bg-transparent" />
+              <label className="flex items-center gap-1 text-xs text-stone-400 shrink-0">
+                <input type="checkbox" checked={s.marks_done}
+                  onChange={e => updateStatus(s.id, { marks_done: e.target.checked })}
+                  className="accent-brand-600" />
+                conclui
+              </label>
               <button onClick={() => deleteStatus(s.id)}
                 className="p-1 text-stone-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all rounded">
                 <Trash2 size={13} />
@@ -611,7 +622,6 @@ function ManageStatusesModal({ open, onClose, statuses, onSaved }: {
           ))}
         </div>
 
-        {/* Add new */}
         <div className="border-t border-stone-100 pt-3 space-y-2">
           <Label className="text-xs text-stone-400">Novo status</Label>
           <div className="flex items-center gap-2">
@@ -672,7 +682,7 @@ export default function Tarefas() {
     setLoading(true)
     const [{ data: tf }, { data: st }, { data: col }] = await Promise.all([
       supabase.from('tarefas')
-        .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color)')
+        .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color, marks_done)')
         .is('deleted_at', null)
         .order('created_at', { ascending: true }),
       supabase.from('tarefa_statuses').select('*').order('sort_order'),
@@ -683,16 +693,13 @@ export default function Tarefas() {
     setStatuses((st ?? []) as TarefaStatus[])
     setColaboradoras((col ?? []) as Colaboradora[])
 
-    // Load profile display names for updated_by
     const ids = [...new Set(tasks.map(t => t.updated_by).filter(Boolean))] as string[]
     if (ids.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles').select('id, display_name').in('id', ids)
+      const { data: profiles } = await supabase.from('profiles').select('id, display_name').in('id', ids)
       const map: Record<string, string> = {}
       ;(profiles ?? []).forEach((p: any) => { map[p.id] = p.display_name })
       setProfileMap(map)
     }
-
     setLoading(false)
   }
 
@@ -706,11 +713,10 @@ export default function Tarefas() {
     const { data, error } = await supabase.from('tarefas')
       .update({ ...patch, updated_by: userId })
       .eq('id', id)
-      .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color)')
+      .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color, marks_done)')
       .single()
     if (error) { toast.error('Erro: ' + error.message); return }
 
-    // Log the change
     if (oldLabel !== newLabel) {
       await supabase.from('tarefa_atividades').insert({
         tarefa_id: id, user_id: userId, field,
@@ -720,25 +726,18 @@ export default function Tarefas() {
 
     setTarefas(prev => prev.map(t => t.id === id ? data as Tarefa : t))
 
-    // Update profileMap if needed
-    if (userId && !profileMap[userId] && session?.user) {
+    if (userId && !profileMap[userId]) {
       const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', userId).single()
-      if (profile) setProfileMap(prev => ({ ...prev, [userId]: profile.display_name }))
+      if (profile) setProfileMap(prev => ({ ...prev, [userId]: (profile as any).display_name }))
     }
-  }, [userId, profileMap, session])
-
-  async function toggleDone(task: Tarefa) {
-    const newDone = !task.is_done
-    await updateTask(task.id, { is_done: newDone }, 'is_done', null,
-      newDone ? 'true' : 'false')
-  }
+  }, [userId, profileMap])
 
   async function addTask() {
     const title = addingTitle.trim()
     if (!title) { setIsAdding(false); return }
     const { data, error } = await supabase.from('tarefas')
       .insert({ title, created_by: userId, updated_by: userId })
-      .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color)')
+      .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color, marks_done)')
       .single()
     if (error) { toast.error('Erro: ' + error.message); return }
     setTarefas(prev => [...prev, data as Tarefa])
@@ -762,33 +761,32 @@ export default function Tarefas() {
 
   const COLS = (
     <colgroup>
-      <col className="w-10" />
       <col />
-      <col className="w-40" />
+      <col className="w-44" />
       <col className="w-36" />
-      <col className="w-32" />
+      <col className="w-34" />
       <col className="w-28" />
       <col className="w-36" />
+      <col className="w-10" />
     </colgroup>
   )
 
   const THEAD = (
     <thead className="border-b border-stone-200 bg-stone-50">
       <tr>
-        <th className="pl-4 pr-2 py-2.5" />
-        <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Tarefa</th>
-        <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Responsável</th>
+        <th className="px-4 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Tarefa</th>
+        <th className="px-3 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Responsável</th>
         <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Status</th>
-        <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Prazo</th>
+        <th className="px-3 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Prazo</th>
         <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Prioridade</th>
-        <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Última atualização</th>
+        <th className="px-3 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Atualização</th>
+        <th className="w-10" />
       </tr>
     </thead>
   )
 
   return (
     <div className="p-4 sm:p-8">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-800">Tarefas</h1>
@@ -800,17 +798,13 @@ export default function Tarefas() {
             title="Gerenciar status">
             <Settings2 size={16} />
           </button>
-          <button
-            onClick={() => setShowDone(v => !v)}
+          <button onClick={() => setShowDone(v => !v)}
             className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-700 px-3 py-1.5 border border-stone-200 rounded-lg bg-white hover:bg-stone-50 transition-colors">
             {showDone ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             {showDone ? 'Ocultar' : 'Mostrar'} concluídas ({done.length})
           </button>
           <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5"
-            onClick={() => {
-              setIsAdding(true)
-              setTimeout(() => addInputRef.current?.focus(), 50)
-            }}>
+            onClick={() => { setIsAdding(true); setTimeout(() => addInputRef.current?.focus(), 50) }}>
             <Plus size={14} />Nova tarefa
           </Button>
         </div>
@@ -831,17 +825,13 @@ export default function Tarefas() {
                   <TaskRow key={t.id} task={t} statuses={statuses}
                     colaboradoras={colaboradoras} profileMap={profileMap}
                     onUpdate={makeUpdateFn(t.id)}
-                    onToggleDone={() => toggleDone(t)}
+                    onDelete={() => deleteTask(t.id)}
                     onOpenPanel={() => setSelectedId(t.id)} />
                 ))}
 
-                {/* Add new task row */}
                 {isAdding && (
                   <tr className="border-b border-stone-100 bg-brand-50/30">
-                    <td className="pl-4 pr-2 py-2.5 w-10">
-                      <Square size={15} className="text-stone-200" />
-                    </td>
-                    <td className="px-2 py-2" colSpan={6}>
+                    <td className="px-4 py-2" colSpan={7}>
                       <div className="flex items-center gap-2">
                         <input ref={addInputRef}
                           value={addingTitle}
@@ -875,7 +865,6 @@ export default function Tarefas() {
             </table>
           </div>
 
-          {/* Done section */}
           {showDone && done.length > 0 && (
             <div className="border-t border-stone-200">
               <div className="px-4 py-2 bg-stone-50 text-xs font-medium text-stone-400 uppercase tracking-wide">
@@ -889,7 +878,7 @@ export default function Tarefas() {
                       <TaskRow key={t.id} task={t} statuses={statuses}
                         colaboradoras={colaboradoras} profileMap={profileMap}
                         onUpdate={makeUpdateFn(t.id)}
-                        onToggleDone={() => toggleDone(t)}
+                        onDelete={() => deleteTask(t.id)}
                         onOpenPanel={() => setSelectedId(t.id)} />
                     ))}
                   </tbody>
@@ -900,19 +889,16 @@ export default function Tarefas() {
         </div>
       )}
 
-      {/* Task panel */}
       {selected && (
         <TaskPanel
           task={selected}
           userId={userId}
           onUpdate={makeUpdateFn(selected.id)}
-          onToggleDone={() => toggleDone(selected)}
           onDelete={() => deleteTask(selected.id)}
           onClose={() => setSelectedId(null)}
         />
       )}
 
-      {/* Manage statuses modal */}
       <ManageStatusesModal
         open={managingStatuses}
         onClose={() => setManagingStatuses(false)}

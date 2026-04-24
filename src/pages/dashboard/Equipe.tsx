@@ -22,13 +22,13 @@ function ColaboradoraModal({ open, onClose, item, unlinkedProfiles, onSaved }: {
   const [phone,  setPhone]  = useState(item?.phone  ?? '')
   const [email,  setEmail]  = useState(item?.email  ?? '')
   const [notes,  setNotes]  = useState(item?.notes  ?? '')
-  const [userId, setUserId] = useState(item?.user_id ?? '')
+  const [userId, setUserId] = useState(item?.user_id ?? '__none__')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setName(item?.name ?? ''); setPhone(item?.phone ?? '')
     setEmail(item?.email ?? ''); setNotes(item?.notes ?? '')
-    setUserId(item?.user_id ?? '')
+    setUserId(item?.user_id ?? '__none__')
   }, [item, open])
 
   async function handleSave() {
@@ -39,7 +39,7 @@ function ColaboradoraModal({ open, onClose, item, unlinkedProfiles, onSaved }: {
       phone: phone || null,
       email: email || null,
       notes: notes || null,
-      user_id: userId || null,
+      user_id: userId === '__none__' ? null : userId || null,
     }
     const { data, error } = item
       ? await supabase.from('colaboradoras').update(payload).eq('id', item.id).select().single()
@@ -93,12 +93,12 @@ function ColaboradoraModal({ open, onClose, item, unlinkedProfiles, onSaved }: {
               <Link size={12} className="text-stone-400" />
               Usuária do sistema
             </Label>
-            <Select value={userId} onValueChange={setUserId}>
+            <Select value={userId} onValueChange={v => setUserId(v)}>
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="Sem conta vinculada" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem conta vinculada</SelectItem>
+                <SelectItem value="__none__">Sem conta vinculada</SelectItem>
                 {availableProfiles.map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.display_name}</SelectItem>
                 ))}
