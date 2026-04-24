@@ -99,6 +99,65 @@ export async function uploadToCloudinary(
   }
 }
 
+// ─── Generic file upload (images + raw files) ────────────────────────────────
+// Unlike uploadToCloudinary (images only), this handles any file type.
+// Images are resized before upload; other files go straight to /raw/upload.
+
+export interface CloudinaryFileResult {
+  secure_url:        string
+  public_id:         string
+  original_filename: string
+  bytes:             number
+  resource_type:     'image' | 'raw'
+}
+
+export async function uploadFileToCloudinary(
+  file: File,
+  folder = 'protetoras',
+): Promise<CloudinaryFileResult> {
+  if (!CLOUD_NAME || CLOUD_NAME === 'undefined') {
+    throw new Error('VITE_CLOUDINARY_CLOUD_NAME is not set — restart the dev server after editing .env')
+  }
+  if (!UPLOAD_PRESET || UPLOAD_PRESET === 'undefined') {
+    throw new Error('VITE_CLOUDINARY_UPLOAD_PRESET is not set — restart the dev server after editing .env')
+  }
+
+  const isImage = file.type.startsWith('image/')
+  const endpoint = isImage ? 'image' : 'raw'
+  const uploadBlob: Blob = isImage ? await resizeImage(file) : file
+  const filename = isImage ? 'photo.jpg' : file.name
+
+  const formData = new FormData()
+  formData.append('file',          uploadBlob, filename)
+  formData.append('upload_preset', UPLOAD_PRESET)
+  formData.append('folder',        folder)
+  if (API_KEY) formData.append('api_key', API_KEY)
+
+  const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${endpoint}/upload`
+  const res = await fetch(url, { method: 'POST', body: formData })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const msg = err?.error?.message ?? `Upload failed: ${res.status}`
+    if (res.status === 401) {
+      throw new Error(
+        `${msg}\n\nMost likely cause: the upload preset "${UPLOAD_PRESET}" is set to Signed.\n` +
+        `Go to Cloudinary → Settings → Upload → Upload Presets → click the preset → set Signing Mode to Unsigned → Save.`
+      )
+    }
+    throw new Error(msg)
+  }
+
+  const data = await res.json()
+  return {
+    secure_url:        data.secure_url,
+    public_id:         data.public_id,
+    original_filename: data.original_filename ?? file.name,
+    bytes:             data.bytes,
+    resource_type:     isImage ? 'image' : 'raw',
+  }
+}
+
 // ─── Transformation URL helper ────────────────────────────────────────────────
 // Use this to request a specific size/crop without re-uploading.
 // e.g. cloudinaryUrl(photo.storage_path, 'w_400,h_400,c_fill,q_auto,f_auto')

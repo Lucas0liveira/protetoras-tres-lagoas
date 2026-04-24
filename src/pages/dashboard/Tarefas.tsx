@@ -1,14 +1,19 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import {
   Plus, Loader2, X, Send,
   Settings2, Trash2, ChevronDown, ChevronUp, Calendar,
+  Paperclip, LayoutList, Activity, Upload, FileText, ExternalLink,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import type { Tarefa, TarefaStatus, TarefaAtividade, TarefaUpdate, Colaboradora } from '@/types/database'
+import { uploadFileToCloudinary } from '@/lib/cloudinary'
+import type {
+  Tarefa, TarefaStatus, TarefaAtividade, TarefaUpdate,
+  Colaboradora, TarefaFile, TarefaBoardView,
+} from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -31,6 +36,13 @@ function timeAgo(iso: string): string {
 
 function initials(name: string): string {
   return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
+}
+
+function fileSizeLabel(bytes: number | null): string {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
 const PRIORITY = {
@@ -101,11 +113,12 @@ type UpdateFn = (
   newLabel: string | null,
 ) => Promise<void>
 
-function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete, onOpenPanel }: {
+function TaskRow({ task, statuses, colaboradoras, profileMap, fileCount, onUpdate, onDelete, onOpenPanel }: {
   task: Tarefa
   statuses: TarefaStatus[]
   colaboradoras: Colaboradora[]
   profileMap: Record<string, string>
+  fileCount: number
   onUpdate: UpdateFn
   onDelete: () => Promise<void>
   onOpenPanel: () => void
@@ -125,7 +138,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
   return (
     <tr className={`border-b border-stone-100 group transition-colors ${task.is_done ? 'bg-stone-50/60 opacity-70' : 'hover:bg-stone-50/40'}`}>
 
-      {/* Title — click opens panel */}
+      {/* Title */}
       <td className="p-0 min-w-[220px]">
         <button onClick={onOpenPanel}
           className={`w-full text-left px-4 py-3 text-sm transition-colors hover:text-brand-700 ${
@@ -135,7 +148,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
         </button>
       </td>
 
-      {/* Responsible — full-cell button */}
+      {/* Responsible */}
       <td className="p-0 w-44">
         <button onClick={e => openAt(e, 'responsible')}
           className="w-full min-h-[43px] px-3 py-2.5 flex items-center gap-2 text-xs hover:bg-stone-100 transition-colors">
@@ -170,7 +183,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
         )}
       </td>
 
-      {/* Status — colored pill button */}
+      {/* Status */}
       <td className="px-2 py-2 w-36">
         <button onClick={e => openAt(e, 'status')}
           className="text-xs font-semibold px-3 py-1.5 rounded-md w-full text-center truncate transition-opacity hover:opacity-80"
@@ -209,7 +222,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
         )}
       </td>
 
-      {/* Deadline — full-cell button */}
+      {/* Deadline */}
       <td className="p-0 w-34">
         <button onClick={e => openAt(e, 'deadline')}
           className="w-full min-h-[43px] px-3 py-2.5 flex items-center gap-1.5 text-xs hover:bg-stone-100 transition-colors">
@@ -249,7 +262,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
         )}
       </td>
 
-      {/* Priority — colored pill button */}
+      {/* Priority */}
       <td className="px-2 py-2 w-28">
         <button onClick={e => openAt(e, 'priority')}
           className="text-xs font-semibold px-3 py-1.5 rounded-md w-full text-center transition-opacity hover:opacity-80"
@@ -288,6 +301,17 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
         )}
       </td>
 
+      {/* Files */}
+      <td className="px-3 py-3 w-16">
+        {fileCount > 0 && (
+          <button onClick={onOpenPanel}
+            className="flex items-center gap-1 text-xs text-stone-400 hover:text-brand-600 transition-colors">
+            <Paperclip size={11} />
+            <span>{fileCount}</span>
+          </button>
+        )}
+      </td>
+
       {/* Last updated */}
       <td className="px-3 py-3 w-36">
         <div className="flex items-center gap-1.5 text-xs text-stone-400">
@@ -296,7 +320,7 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
         </div>
       </td>
 
-      {/* Delete — appears on row hover */}
+      {/* Delete */}
       <td className="pr-3 py-2 w-10">
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
@@ -309,10 +333,127 @@ function TaskRow({ task, statuses, colaboradoras, profileMap, onUpdate, onDelete
   )
 }
 
+// ─── Files tab (inside task panel) ───────────────────────────────────────────
+
+type PanelFile = TarefaFile & { uploader?: { display_name: string } | null }
+
+function FilesTab({ task, userId, onCountChange }: {
+  task: Tarefa
+  userId: string | null
+  onCountChange: (delta: number) => void
+}) {
+  const [files, setFiles] = useState<PanelFile[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { loadFiles() }, [task.id])
+
+  async function loadFiles() {
+    setLoading(true)
+    const { data } = await supabase.from('tarefa_files')
+      .select('*, uploader:profiles!tarefa_files_uploader_id_fkey(display_name)')
+      .eq('tarefa_id', task.id)
+      .order('created_at', { ascending: false })
+    setFiles((data ?? []) as PanelFile[])
+    setLoading(false)
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const result = await uploadFileToCloudinary(file, 'protetoras/tarefas')
+      const { data, error } = await supabase.from('tarefa_files')
+        .insert({
+          tarefa_id: task.id,
+          uploader_id: userId,
+          file_name: file.name,
+          storage_url: result.secure_url,
+          resource_type: result.resource_type,
+          bytes: result.bytes,
+        })
+        .select('*, uploader:profiles!tarefa_files_uploader_id_fkey(display_name)')
+        .single()
+      if (error) { toast.error('Erro ao salvar: ' + error.message); return }
+      setFiles(prev => [data as PanelFile, ...prev])
+      onCountChange(1)
+      toast.success('Arquivo enviado.')
+    } catch (err: unknown) {
+      toast.error('Erro no upload: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  async function deleteFile(id: string) {
+    await supabase.from('tarefa_files').delete().eq('id', id)
+    setFiles(prev => prev.filter(f => f.id !== id))
+    onCountChange(-1)
+    toast.success('Arquivo removido.')
+  }
+
+  return (
+    <div className="p-4 space-y-3">
+      <div>
+        <input ref={inputRef} type="file" className="hidden" onChange={handleUpload} />
+        <Button size="sm" variant="outline" className="gap-1.5"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}>
+          {uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+          {uploading ? 'Enviando...' : 'Adicionar arquivo'}
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8 text-stone-400 gap-2">
+          <Loader2 size={14} className="animate-spin" /><span className="text-xs">Carregando...</span>
+        </div>
+      ) : files.length === 0 ? (
+        <p className="text-sm text-stone-400 italic text-center py-8">Nenhum arquivo anexado.</p>
+      ) : (
+        <div className="space-y-2">
+          {files.map(f => (
+            <div key={f.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-stone-100 bg-stone-50 group/file">
+              {f.resource_type === 'image' ? (
+                <img src={f.storage_url} alt={f.file_name}
+                  className="w-10 h-10 rounded object-cover shrink-0 border border-stone-200" />
+              ) : (
+                <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0">
+                  <FileText size={18} className="text-stone-400" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-stone-700 truncate">{f.file_name}</p>
+                <p className="text-xs text-stone-400">
+                  {fileSizeLabel(f.bytes)}{f.bytes ? ' · ' : ''}{timeAgo(f.created_at)}
+                  {f.uploader?.display_name ? ` · ${f.uploader.display_name}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <a href={f.storage_url} target="_blank" rel="noreferrer"
+                  className="p-1.5 text-stone-300 hover:text-brand-600 rounded transition-colors">
+                  <ExternalLink size={13} />
+                </a>
+                <button onClick={() => deleteFile(f.id)}
+                  className="p-1.5 text-stone-200 hover:text-red-400 opacity-0 group-hover/file:opacity-100 rounded transition-all">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Task panel (right drawer) ────────────────────────────────────────────────
 
-type PanelUpdate = TarefaUpdate & { author?: { display_name: string } | null }
-type PanelAtividade = TarefaAtividade & { user?: { display_name: string } | null }
+type PanelUpdate    = TarefaUpdate   & { author?: { display_name: string } | null }
+type PanelAtividade = TarefaAtividade & { user?:   { display_name: string } | null }
 
 function formatAtividade(a: PanelAtividade): string {
   const who = a.user?.display_name ?? 'Alguém'
@@ -330,14 +471,15 @@ function formatAtividade(a: PanelAtividade): string {
   return `${who} removeu ${fieldLabel}`
 }
 
-function TaskPanel({ task, userId, onUpdate, onDelete, onClose }: {
+function TaskPanel({ task, userId, onUpdate, onDelete, onClose, onFilesChanged }: {
   task: Tarefa
   userId: string | null
   onUpdate: UpdateFn
   onDelete: () => Promise<void>
   onClose: () => void
+  onFilesChanged: (tarefa_id: string, delta: number) => void
 }) {
-  const [tab, setTab] = useState<'updates' | 'atividade'>('updates')
+  const [tab, setTab] = useState<'updates' | 'arquivos' | 'atividade'>('updates')
   const [updates, setUpdates] = useState<PanelUpdate[]>([])
   const [atividades, setAtividades] = useState<PanelAtividade[]>([])
   const [loadingPanel, setLoadingPanel] = useState(true)
@@ -397,6 +539,12 @@ function TaskPanel({ task, userId, onUpdate, onDelete, onClose }: {
     setUpdates(prev => prev.filter(u => u.id !== id))
   }
 
+  const TABS = [
+    { key: 'updates'   as const, label: 'Atualizações' },
+    { key: 'arquivos'  as const, label: 'Arquivos' },
+    { key: 'atividade' as const, label: 'Atividade' },
+  ]
+
   return (
     <div className="fixed inset-0 z-30 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20" />
@@ -448,10 +596,7 @@ function TaskPanel({ task, userId, onUpdate, onDelete, onClose }: {
 
         {/* Tabs */}
         <div className="flex gap-1 px-5 pt-3 pb-0 shrink-0 border-b border-stone-100">
-          {([
-            { key: 'updates',   label: 'Atualizações' },
-            { key: 'atividade', label: 'Atividade' },
-          ] as { key: 'updates' | 'atividade'; label: string }[]).map(t => (
+          {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 pb-2 text-sm font-medium border-b-2 transition-colors ${
                 tab === t.key
@@ -465,7 +610,13 @@ function TaskPanel({ task, userId, onUpdate, onDelete, onClose }: {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto min-h-0">
-          {loadingPanel ? (
+          {tab === 'arquivos' ? (
+            <FilesTab
+              task={task}
+              userId={userId}
+              onCountChange={delta => onFilesChanged(task.id, delta)}
+            />
+          ) : loadingPanel ? (
             <div className="flex items-center justify-center py-16 text-stone-400 gap-2">
               <Loader2 size={16} className="animate-spin" /><span className="text-sm">Carregando...</span>
             </div>
@@ -528,6 +679,186 @@ function TaskPanel({ task, userId, onUpdate, onDelete, onClose }: {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Board-wide activity log ──────────────────────────────────────────────────
+
+type AtividadeWithTask = TarefaAtividade & {
+  user?: { display_name: string } | null
+  tarefa?: { title: string } | null
+}
+type UpdateWithTask = TarefaUpdate & {
+  author?: { display_name: string } | null
+  tarefa?: { title: string } | null
+}
+type FileWithTask = TarefaFile & {
+  uploader?: { display_name: string } | null
+  tarefa?: { title: string } | null
+}
+
+type FeedItem =
+  | { kind: 'atividade'; created_at: string; data: AtividadeWithTask }
+  | { kind: 'update';    created_at: string; data: UpdateWithTask }
+  | { kind: 'file';      created_at: string; data: FileWithTask }
+
+function formatFeedAtividade(a: AtividadeWithTask): string {
+  const who = a.user?.display_name ?? 'Alguém'
+  const fieldLabel = FIELD_LOG_LABEL[a.field] ?? a.field
+  const task = a.tarefa?.title ? `"${a.tarefa.title}"` : 'uma tarefa'
+
+  if (a.field === 'is_done') {
+    return a.new_value === 'true'
+      ? `${who} concluiu ${task}`
+      : `${who} reabriu ${task}`
+  }
+  if (a.old_value && a.new_value)
+    return `${who} alterou ${fieldLabel} de ${task} de "${a.old_value}" para "${a.new_value}"`
+  if (a.new_value)
+    return `${who} definiu ${fieldLabel} de ${task} como "${a.new_value}"`
+  return `${who} removeu ${fieldLabel} de ${task}`
+}
+
+function BoardActivityLog() {
+  const [views, setViews] = useState<(TarefaBoardView & { user?: { display_name: string } | null })[]>([])
+  const [feed, setFeed] = useState<FeedItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { loadActivity() }, [])
+
+  async function loadActivity() {
+    setLoading(true)
+    const [{ data: vs }, { data: ats }, { data: upds }, { data: fls }] = await Promise.all([
+      supabase.from('tarefa_board_views')
+        .select('*, user:profiles!tarefa_board_views_user_id_fkey(display_name)')
+        .order('viewed_at', { ascending: false })
+        .limit(10),
+      supabase.from('tarefa_atividades')
+        .select('*, user:profiles!tarefa_atividades_user_id_fkey(display_name), tarefa:tarefas!tarefa_atividades_tarefa_id_fkey(title)')
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase.from('tarefa_updates')
+        .select('*, author:profiles!tarefa_updates_author_id_fkey(display_name), tarefa:tarefas!tarefa_updates_tarefa_id_fkey(title)')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase.from('tarefa_files')
+        .select('*, uploader:profiles!tarefa_files_uploader_id_fkey(display_name), tarefa:tarefas!tarefa_files_tarefa_id_fkey(title)')
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ])
+
+    setViews((vs ?? []) as typeof views)
+
+    const combined: FeedItem[] = [
+      ...(ats ?? []).map((d): FeedItem => ({ kind: 'atividade', created_at: (d as AtividadeWithTask).created_at, data: d as AtividadeWithTask })),
+      ...(upds ?? []).map((d): FeedItem => ({ kind: 'update', created_at: (d as UpdateWithTask).created_at, data: d as UpdateWithTask })),
+      ...(fls ?? []).map((d): FeedItem => ({ kind: 'file', created_at: (d as FileWithTask).created_at, data: d as FileWithTask })),
+    ]
+    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    setFeed(combined.slice(0, 40))
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-stone-400 gap-2">
+        <Loader2 size={18} className="animate-spin" /><span className="text-sm">Carregando...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Recent viewers */}
+      {views.length > 0 && (
+        <div className="bg-white rounded-xl border border-stone-200 p-4">
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">
+            Visualizações recentes
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {views.map(v => (
+              <div key={v.user_id} className="flex items-center gap-2">
+                {v.user?.display_name && <Avatar name={v.user.display_name} size="md" />}
+                <div>
+                  <p className="text-sm font-medium text-stone-700">{v.user?.display_name ?? 'Usuário'}</p>
+                  <p className="text-xs text-stone-400">{timeAgo(v.viewed_at)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Activity feed */}
+      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-stone-100 bg-stone-50">
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Atividade recente</p>
+        </div>
+        {feed.length === 0 ? (
+          <p className="text-sm text-stone-400 italic text-center py-12">Nenhuma atividade ainda.</p>
+        ) : (
+          <div className="divide-y divide-stone-50">
+            {feed.map((item, i) => {
+              if (item.kind === 'atividade') {
+                const a = item.data
+                return (
+                  <div key={`a-${a.id ?? i}`} className="flex items-start gap-3 px-4 py-3">
+                    {a.user?.display_name
+                      ? <Avatar name={a.user.display_name} />
+                      : <div className="w-6 h-6 rounded-full bg-stone-100 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-stone-700">{formatFeedAtividade(a)}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">{timeAgo(a.created_at)}</p>
+                    </div>
+                  </div>
+                )
+              }
+              if (item.kind === 'update') {
+                const u = item.data
+                const who = u.author?.display_name ?? 'Alguém'
+                const task = u.tarefa?.title ? `"${u.tarefa.title}"` : 'uma tarefa'
+                return (
+                  <div key={`u-${u.id}`} className="flex items-start gap-3 px-4 py-3">
+                    {u.author?.display_name
+                      ? <Avatar name={u.author.display_name} />
+                      : <div className="w-6 h-6 rounded-full bg-stone-100 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-stone-700">
+                        <span className="font-medium">{who}</span> adicionou uma atualização em {task}
+                      </p>
+                      <p className="text-xs text-stone-500 mt-0.5 line-clamp-2 italic">"{u.body}"</p>
+                      <p className="text-xs text-stone-400 mt-0.5">{timeAgo(u.created_at)}</p>
+                    </div>
+                  </div>
+                )
+              }
+              // file
+              const f = item.data
+              const who = f.uploader?.display_name ?? 'Alguém'
+              const task = f.tarefa?.title ? `"${f.tarefa.title}"` : 'uma tarefa'
+              return (
+                <div key={`f-${f.id}`} className="flex items-start gap-3 px-4 py-3">
+                  {f.uploader?.display_name
+                    ? <Avatar name={f.uploader.display_name} />
+                    : <div className="w-6 h-6 rounded-full bg-stone-100 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-stone-700">
+                      <span className="font-medium">{who}</span> anexou <span className="font-medium">{f.file_name}</span> em {task}
+                    </p>
+                    <p className="text-xs text-stone-400 mt-0.5">{timeAgo(f.created_at)}</p>
+                  </div>
+                  <a href={f.storage_url} target="_blank" rel="noreferrer"
+                    className="p-1 text-stone-300 hover:text-brand-600 transition-colors shrink-0">
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -664,40 +995,70 @@ export default function Tarefas() {
   const [statuses, setStatuses] = useState<TarefaStatus[]>([])
   const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([])
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
+  const [fileCountMap, setFileCountMap] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [showDone, setShowDone] = useState(false)
+  const [mainTab, setMainTab] = useState<'quadro' | 'atividade'>('quadro')
+  const [filterResponsible, setFilterResponsible] = useState<string>('__all__')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isAdding, setIsAdding] = useState(false)
   const [addingTitle, setAddingTitle] = useState('')
   const [managingStatuses, setManagingStatuses] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
 
-  const active = tarefas.filter(t => !t.is_done)
-  const done   = tarefas.filter(t => t.is_done)
+  const active = useMemo(() => {
+    let tasks = tarefas.filter(t => !t.is_done)
+    if (filterResponsible === '__none__') tasks = tasks.filter(t => !t.responsible_id)
+    else if (filterResponsible !== '__all__') tasks = tasks.filter(t => t.responsible_id === filterResponsible)
+    return tasks
+  }, [tarefas, filterResponsible])
+
+  const done = useMemo(() => {
+    let tasks = tarefas.filter(t => t.is_done)
+    if (filterResponsible === '__none__') tasks = tasks.filter(t => !t.responsible_id)
+    else if (filterResponsible !== '__all__') tasks = tasks.filter(t => t.responsible_id === filterResponsible)
+    return tasks
+  }, [tarefas, filterResponsible])
+
   const selected = tarefas.find(t => t.id === selectedId) ?? null
 
   useEffect(() => { loadAll() }, [])
 
+  // Upsert board view on mount (after userId is known)
+  useEffect(() => {
+    if (!userId) return
+    supabase.from('tarefa_board_views')
+      .upsert({ user_id: userId, viewed_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .then()
+  }, [userId])
+
   async function loadAll() {
     setLoading(true)
-    const [{ data: tf }, { data: st }, { data: col }] = await Promise.all([
+    const [{ data: tf }, { data: st }, { data: col }, { data: fc }] = await Promise.all([
       supabase.from('tarefas')
         .select('*, responsible:colaboradoras(id, name), status:tarefa_statuses(id, name, color, marks_done)')
         .is('deleted_at', null)
         .order('created_at', { ascending: true }),
       supabase.from('tarefa_statuses').select('*').order('sort_order'),
       supabase.from('colaboradoras').select('id, name').is('deleted_at', null).eq('is_active', true).order('name'),
+      supabase.from('tarefa_files').select('tarefa_id'),
     ])
     const tasks = (tf ?? []) as Tarefa[]
     setTarefas(tasks)
     setStatuses((st ?? []) as TarefaStatus[])
     setColaboradoras((col ?? []) as Colaboradora[])
 
+    const countMap: Record<string, number> = {}
+    ;(fc ?? []).forEach((f: { tarefa_id: string }) => {
+      countMap[f.tarefa_id] = (countMap[f.tarefa_id] ?? 0) + 1
+    })
+    setFileCountMap(countMap)
+
     const ids = [...new Set(tasks.map(t => t.updated_by).filter(Boolean))] as string[]
     if (ids.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, display_name').in('id', ids)
       const map: Record<string, string> = {}
-      ;(profiles ?? []).forEach((p: any) => { map[p.id] = p.display_name })
+      ;(profiles ?? []).forEach((p: { id: string; display_name: string }) => { map[p.id] = p.display_name })
       setProfileMap(map)
     }
     setLoading(false)
@@ -728,7 +1089,7 @@ export default function Tarefas() {
 
     if (userId && !profileMap[userId]) {
       const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', userId).single()
-      if (profile) setProfileMap(prev => ({ ...prev, [userId]: (profile as any).display_name }))
+      if (profile) setProfileMap(prev => ({ ...prev, [userId]: (profile as { display_name: string }).display_name }))
     }
   }, [userId, profileMap])
 
@@ -759,6 +1120,13 @@ export default function Tarefas() {
     return (patch, field, oldLabel, newLabel) => updateTask(id, patch, field, oldLabel, newLabel)
   }
 
+  function handleFilesChanged(tarefa_id: string, delta: number) {
+    setFileCountMap(prev => ({
+      ...prev,
+      [tarefa_id]: Math.max(0, (prev[tarefa_id] ?? 0) + delta),
+    }))
+  }
+
   const COLS = (
     <colgroup>
       <col />
@@ -766,6 +1134,7 @@ export default function Tarefas() {
       <col className="w-36" />
       <col className="w-34" />
       <col className="w-28" />
+      <col className="w-16" />
       <col className="w-36" />
       <col className="w-10" />
     </colgroup>
@@ -779,51 +1148,92 @@ export default function Tarefas() {
         <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Status</th>
         <th className="px-3 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Prazo</th>
         <th className="px-2 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Prioridade</th>
+        <th className="px-3 py-2.5 text-stone-400" title="Arquivos"><Paperclip size={12} /></th>
         <th className="px-3 py-2.5 text-left text-xs font-medium text-stone-400 uppercase tracking-wide">Atualização</th>
         <th className="w-10" />
       </tr>
     </thead>
   )
 
+  const MAIN_TABS = [
+    { key: 'quadro'    as const, label: 'Quadro',    icon: LayoutList },
+    { key: 'atividade' as const, label: 'Atividade', icon: Activity },
+  ]
+
   return (
     <div className="p-4 sm:p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-800">Tarefas</h1>
           <p className="text-stone-400 text-sm mt-1">Quadro de tarefas da equipe</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setManagingStatuses(true)}
-            className="p-2 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition-colors"
-            title="Gerenciar status">
-            <Settings2 size={16} />
-          </button>
-          <button onClick={() => setShowDone(v => !v)}
-            className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-700 px-3 py-1.5 border border-stone-200 rounded-lg bg-white hover:bg-stone-50 transition-colors">
-            {showDone ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            {showDone ? 'Ocultar' : 'Mostrar'} concluídas ({done.length})
-          </button>
-          <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5"
-            onClick={() => { setIsAdding(true); setTimeout(() => addInputRef.current?.focus(), 50) }}>
-            <Plus size={14} />Nova tarefa
-          </Button>
+          {mainTab === 'quadro' && (
+            <>
+              {/* Filter by responsible */}
+              <select
+                value={filterResponsible}
+                onChange={e => setFilterResponsible(e.target.value)}
+                className="text-xs border border-stone-200 rounded-lg px-2 py-1.5 bg-white text-stone-600 focus:outline-none focus:ring-2 focus:ring-brand-300">
+                <option value="__all__">Todas</option>
+                <option value="__none__">Sem responsável</option>
+                {colaboradoras.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <button onClick={() => setManagingStatuses(true)}
+                className="p-2 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition-colors"
+                title="Gerenciar status">
+                <Settings2 size={16} />
+              </button>
+              <button onClick={() => setShowDone(v => !v)}
+                className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-700 px-3 py-1.5 border border-stone-200 rounded-lg bg-white hover:bg-stone-50 transition-colors">
+                {showDone ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {showDone ? 'Ocultar' : 'Mostrar'} concluídas ({done.length})
+              </button>
+              <Button size="sm" className="bg-brand-600 hover:bg-brand-700 gap-1.5"
+                onClick={() => { setIsAdding(true); setTimeout(() => addInputRef.current?.focus(), 50) }}>
+                <Plus size={14} />Nova tarefa
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {loading ? (
+      {/* Main tabs */}
+      <div className="flex gap-1 mb-5 border-b border-stone-200">
+        {MAIN_TABS.map(t => {
+          const Icon = t.icon
+          return (
+            <button key={t.key} onClick={() => setMainTab(t.key)}
+              className={`flex items-center gap-1.5 px-3 pb-2.5 text-sm font-medium border-b-2 transition-colors ${
+                mainTab === t.key
+                  ? 'border-brand-500 text-brand-700'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
+              }`}>
+              <Icon size={14} />{t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {mainTab === 'atividade' ? (
+        <BoardActivityLog />
+      ) : loading ? (
         <div className="flex items-center justify-center py-24 text-stone-400 gap-2">
           <Loader2 size={18} className="animate-spin" /><span className="text-sm">Carregando...</span>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+            <table className="w-full min-w-[740px]">
               {COLS}
               {THEAD}
               <tbody>
                 {active.map(t => (
                   <TaskRow key={t.id} task={t} statuses={statuses}
                     colaboradoras={colaboradoras} profileMap={profileMap}
+                    fileCount={fileCountMap[t.id] ?? 0}
                     onUpdate={makeUpdateFn(t.id)}
                     onDelete={() => deleteTask(t.id)}
                     onOpenPanel={() => setSelectedId(t.id)} />
@@ -831,7 +1241,7 @@ export default function Tarefas() {
 
                 {isAdding && (
                   <tr className="border-b border-stone-100 bg-brand-50/30">
-                    <td className="px-4 py-2" colSpan={7}>
+                    <td className="px-4 py-2" colSpan={8}>
                       <div className="flex items-center gap-2">
                         <input ref={addInputRef}
                           value={addingTitle}
@@ -856,7 +1266,7 @@ export default function Tarefas() {
 
                 {active.length === 0 && !isAdding && (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center text-stone-400 text-sm italic">
+                    <td colSpan={8} className="py-16 text-center text-stone-400 text-sm italic">
                       Nenhuma tarefa pendente. Clique em "Nova tarefa" para começar.
                     </td>
                   </tr>
@@ -871,12 +1281,13 @@ export default function Tarefas() {
                 Concluídas ({done.length})
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px]">
+                <table className="w-full min-w-[740px]">
                   {COLS}
                   <tbody>
                     {done.map(t => (
                       <TaskRow key={t.id} task={t} statuses={statuses}
                         colaboradoras={colaboradoras} profileMap={profileMap}
+                        fileCount={fileCountMap[t.id] ?? 0}
                         onUpdate={makeUpdateFn(t.id)}
                         onDelete={() => deleteTask(t.id)}
                         onOpenPanel={() => setSelectedId(t.id)} />
@@ -896,6 +1307,7 @@ export default function Tarefas() {
           onUpdate={makeUpdateFn(selected.id)}
           onDelete={() => deleteTask(selected.id)}
           onClose={() => setSelectedId(null)}
+          onFilesChanged={handleFilesChanged}
         />
       )}
 

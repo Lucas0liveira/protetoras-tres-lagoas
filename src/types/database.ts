@@ -196,6 +196,19 @@ export interface TarefaUpdate {
   author?: Pick<Profile, 'display_name'> | null
 }
 
+export interface TarefaFile {
+  id: string; tarefa_id: string; uploader_id: string | null
+  file_name: string; storage_url: string; resource_type: 'image' | 'raw'
+  bytes: number | null; created_at: string
+  uploader?: Pick<Profile, 'display_name'> | null
+  tarefa?: Pick<Tarefa, 'title'> | null
+}
+
+export interface TarefaBoardView {
+  user_id: string; viewed_at: string
+  user?: Pick<Profile, 'display_name'> | null
+}
+
 // ─── Status sort order ────────────────────────────────────────────────────────
 
 export const STATUS_ORDER: Record<AnimalStatusEnum, number> = {
