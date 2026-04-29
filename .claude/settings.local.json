@@ -23,7 +23,10 @@
       "Bash(git filter-branch --env-filter ':*)",
       "Bash(git stash:*)",
       "Bash(sort -t'<' -k2)",
-      "Bash(uniq -f1)"
+      "Bash(uniq -f1)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(grep \"^\\\\\\\\.env\")"
     ]
   }
 }

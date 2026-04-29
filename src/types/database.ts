@@ -116,6 +116,7 @@ export interface Interest {
   email: string | null; message: string | null; interest_type: InterestTypeEnum
   status: InterestStatusEnum; admin_notes: string | null
   form_data: Record<string, unknown> | null
+  email_sent_at: string | null; email_sent_status: string | null
   created_at: string; updated_at: string
   animal?: Pick<Animal, 'id' | 'name' | 'species'>
 }

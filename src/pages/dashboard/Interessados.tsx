@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Search, Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Eye } from 'lucide-react'
+import { Search, Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Eye, Mail } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import type { Interest, InterestStatusEnum } from '@/types/database'
@@ -23,6 +23,15 @@ const TYPE_COLORS: Record<string, string> = {
   lar_temporario: 'bg-blue-50 text-blue-700 border-blue-200',
   contribuicao: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   voluntario: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+const STATUS_BADGE: Record<InterestStatusEnum, string> = {
+  pendente:   'bg-amber-50 text-amber-700 border-amber-200',
+  contactado: 'bg-blue-50 text-blue-700 border-blue-200',
+  aprovado:   'bg-brand-50 text-brand-700 border-brand-200',
+  recusado:   'bg-red-50 text-red-600 border-red-200',
+}
+const STATUS_LABELS: Record<InterestStatusEnum, string> = {
+  pendente: 'Pendente', contactado: 'Contactado', aprovado: 'Aprovado', recusado: 'Recusado',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -70,7 +79,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 // ─── Detail modal ─────────────────────────────────────────────────────────────
 
-function InterestDetailModal({ interest, onClose }: { interest: (Interest & { animal?: any }) | null; onClose: () => void }) {
+function InterestDetailModal({ interest, onClose }: { interest: (Interest & { animal?: { id: string; name: string; species: string } | null }) | null; onClose: () => void }) {
   if (!interest) return null
   const form_data = interest.form_data ?? {}
   const entries = Object.entries(form_data).filter(([, v]) => v !== null && v !== '' && v !== undefined)
@@ -134,19 +143,32 @@ function SortTh({ label, field, current, dir, onSort }: {
 // ─── Interest row ─────────────────────────────────────────────────────────────
 
 function InterestRow({ interest, onUpdated, onShowDetail }: {
-  interest: Interest & { animal?: any }
+  interest: Interest & { animal?: { id: string; name: string; species: string } | null }
   onUpdated: (i: Interest) => void
-  onShowDetail: (i: Interest & { animal?: any }) => void
+  onShowDetail: (i: Interest & { animal?: { id: string; name: string; species: string } | null }) => void
 }) {
   const [editingNotes, setEditingNotes] = useState(false)
-  const [notes, setNotes] = useState(interest.admin_notes ?? '')
-  const [saving, setSaving] = useState(false)
+  const [notes,        setNotes]        = useState(interest.admin_notes ?? '')
+  const [saving,       setSaving]       = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   async function updateStatus(status: InterestStatusEnum) {
     const { data, error } = await supabase.from('interests')
       .update({ status }).eq('id', interest.id).select().single()
     if (error) { toast.error('Erro: ' + error.message); return }
     onUpdated(data as Interest)
+  }
+
+  async function sendEmail() {
+    if (!interest.email || sendingEmail) return
+    setSendingEmail(true)
+    const { error } = await supabase.functions.invoke('send-interest-email', {
+      body: { interestId: interest.id, status: interest.status },
+    })
+    setSendingEmail(false)
+    if (error) { toast.error('Erro ao enviar email: ' + error.message); return }
+    onUpdated({ ...interest, email_sent_at: new Date().toISOString(), email_sent_status: interest.status })
+    toast.success('Email enviado com sucesso!')
   }
 
   async function saveNotes() {
@@ -161,6 +183,8 @@ function InterestRow({ interest, onUpdated, onShowDetail }: {
   }
 
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+  const canEmail         = interest.email && ['contactado', 'aprovado', 'recusado'].includes(interest.status)
+  const emailSentCurrent = interest.email_sent_status === interest.status
 
   return (
     <tr className="border-b border-stone-50 hover:bg-stone-50/50 align-top">
@@ -187,19 +211,55 @@ function InterestRow({ interest, onUpdated, onShowDetail }: {
           <p className="text-xs text-stone-500 mt-1 line-clamp-2 italic">"{interest.message}"</p>
         )}
       </td>
-      <td className="px-4 py-3">
-        <Select value={interest.status} onValueChange={(v: string) => updateStatus(v as InterestStatusEnum)}>
-          <SelectTrigger className="h-7 text-xs w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="contactado">Contactado</SelectItem>
-            <SelectItem value="aprovado">Aprovado</SelectItem>
-            <SelectItem value="recusado">Recusado</SelectItem>
-          </SelectContent>
-        </Select>
+
+      {/* Status — colored badge + contextual action buttons + email notification */}
+      <td className="px-4 py-3 min-w-[150px]">
+        <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full border font-medium ${STATUS_BADGE[interest.status]}`}>
+          {STATUS_LABELS[interest.status]}
+        </span>
+
+        <div className="flex flex-wrap gap-1 mt-2">
+          {interest.status === 'pendente' && (
+            <button onClick={() => updateStatus('contactado')}
+              className="text-xs px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
+              Contactar →
+            </button>
+          )}
+          {interest.status === 'contactado' && (<>
+            <button onClick={() => updateStatus('aprovado')}
+              className="text-xs px-2 py-0.5 rounded border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors">
+              Aprovar
+            </button>
+            <button onClick={() => updateStatus('recusado')}
+              className="text-xs px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+              Recusar
+            </button>
+          </>)}
+          {(interest.status === 'aprovado' || interest.status === 'recusado') && (
+            <button onClick={() => updateStatus('pendente')}
+              className="text-xs px-2 py-0.5 rounded border border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-100 transition-colors">
+              Reabrir
+            </button>
+          )}
+        </div>
+
+        {canEmail && (
+          <div className="mt-1.5">
+            {emailSentCurrent ? (
+              <span className="text-xs text-stone-400 flex items-center gap-1">
+                <Mail size={10} />Enviado {fmt(interest.email_sent_at!)}
+              </span>
+            ) : (
+              <button onClick={sendEmail} disabled={sendingEmail}
+                className="text-xs flex items-center gap-1 text-stone-400 hover:text-brand-600 transition-colors disabled:opacity-50">
+                {sendingEmail ? <Loader2 size={10} className="animate-spin" /> : <Mail size={10} />}
+                Enviar email
+              </button>
+            )}
+          </div>
+        )}
       </td>
+
       <td className="hidden lg:table-cell px-4 py-3 max-w-xs">
         {editingNotes ? (
           <div className="space-y-1.5">
@@ -234,16 +294,16 @@ function InterestRow({ interest, onUpdated, onShowDetail }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Interessados() {
-  const [interests, setInterests] = useState<(Interest & { animal?: any })[]>([])
+  const [interests, setInterests] = useState<(Interest & { animal?: { id: string; name: string; species: string } | null })[]>([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | InterestStatusEnum>('all')
   const [filterType,   setFilterType]   = useState<'all' | string>('all')
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [detailInterest, setDetailInterest] = useState<(Interest & { animal?: any }) | null>(null)
+  const [detailInterest, setDetailInterest] = useState<(Interest & { animal?: { id: string; name: string; species: string } | null }) | null>(null)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/immutability
 
   async function load() {
     setLoading(true)
@@ -252,7 +312,7 @@ export default function Interessados() {
       .select('*, animal:animals(id, name, species)')
       .order('created_at', { ascending: false })
     if (error) { toast.error('Erro ao carregar interesses'); setLoading(false); return }
-    setInterests((data ?? []) as any[])
+    setInterests((data ?? []) as (Interest & { animal?: { id: string; name: string; species: string } | null })[])
     setLoading(false)
   }
 
