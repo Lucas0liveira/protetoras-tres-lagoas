@@ -18,7 +18,8 @@ import { PublicPhotoGallery } from './PublicPhotoGallery'
 import { SpecialNeedsBadge } from './SpecialNeedsBadge'
 
 import {
-  EditAnimalModal, EditRescueModal, AddSanitaryModal, AddMedicalRecordModal,
+  EditAnimalModal, EditRescueModal, AddSanitaryModal, EditSanitaryModal,
+  AddMedicalRecordModal, EditMedicalRecordModal,
   AddCustodyModal, EditCustodyModal, DeleteCustodyModal, EndCustodyModal,
   ArchiveAnimalModal,
   SANITARY_LABELS, VISIT_LABELS, EXAM_RESULT_LABELS,
@@ -106,8 +107,10 @@ export default function AnimalDetail() {
 
   const [loading, setLoading]         = useState(true)
   const [notFound, setNotFound]       = useState(false)
-  const [mainModal, setMainModal]     = useState<MainModal>(null)
+  const [mainModal, setMainModal]         = useState<MainModal>(null)
   const [custodyAction, setCustodyAction] = useState<CustodyAction | null>(null)
+  const [editingSanitary, setEditingSanitary] = useState<SanitaryProcedure | null>(null)
+  const [editingRecord,   setEditingRecord]   = useState<MedicalRecord | null>(null)
 
   const [animal,     setAnimal]     = useState<Animal | null>(null)
   const [rescue,     setRescue]     = useState<AnimalRescue | null>(null)
@@ -442,7 +445,7 @@ export default function AnimalDetail() {
               : <div className="overflow-hidden rounded-lg border border-stone-100">
                 <table className="w-full text-sm">
                   <thead className="bg-stone-50 border-b border-stone-100">
-                    <tr>{['Procedimento', 'Realizado em', 'Próxima aplicação', 'Obs.'].map(h => (
+                    <tr>{['Procedimento', 'Realizado em', 'Próxima aplicação', 'Obs.', ''].map(h => (
                       <th key={h} className="text-left px-3 py-2 text-xs text-stone-500 font-medium uppercase tracking-wide">{h}</th>
                     ))}</tr>
                   </thead>
@@ -458,6 +461,12 @@ export default function AnimalDetail() {
                         <td className="px-3 py-2.5 text-stone-500">{fmt(p.performed_date)}</td>
                         <td className="px-3 py-2.5 text-stone-500">{fmt(p.next_due_date)}</td>
                         <td className="px-3 py-2.5 text-stone-400 text-xs">{p.description ?? '—'}</td>
+                        <td className="px-3 py-2.5">
+                          <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-stone-700"
+                            onClick={() => setEditingSanitary(p)}>
+                            <Pencil size={12} />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -489,7 +498,13 @@ export default function AnimalDetail() {
                             </div>
                           </div>
                         </div>
-                        {r.vet_name && <span className="text-xs text-stone-400">Dr(a). {r.vet_name}</span>}
+                        <div className="flex items-center gap-2">
+                          {r.vet_name && <span className="text-xs text-stone-400">Dr(a). {r.vet_name}</span>}
+                          <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-stone-700"
+                            onClick={() => setEditingRecord(r)}>
+                            <Pencil size={12} />
+                          </Button>
+                        </div>
                       </div>
                       <div className="p-4 space-y-4">
                         <div>
@@ -610,6 +625,19 @@ export default function AnimalDetail() {
 
       <ArchiveAnimalModal open={mainModal === 'archive'} onClose={() => setMainModal(null)}
         animal={animal} onArchived={() => navigate('/dashboard/animais')} />
+
+      {editingSanitary && (
+        <EditSanitaryModal open onClose={() => setEditingSanitary(null)}
+          procedure={editingSanitary}
+          onUpdated={(p) => { setSanitary(prev => prev.map(s => s.id === p.id ? p : s)); setEditingSanitary(null) }} />
+      )}
+
+      {editingRecord && (
+        <EditMedicalRecordModal open onClose={() => setEditingRecord(null)}
+          record={editingRecord} clinics={clinics}
+          onUpdated={(r) => { setRecords(prev => prev.map(x => x.id === r.id ? r : x)); setEditingRecord(null) }}
+          onClinicCreated={(c) => setClinics(prev => [...prev, c])} />
+      )}
 
       {custodyAction?.type === 'end' && (
         <EndCustodyModal open onClose={() => setCustodyAction(null)}

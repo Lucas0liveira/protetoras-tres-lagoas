@@ -951,6 +951,284 @@ export function EndCustodyModal({
     </Dialog>
   )
 }
+// ─── EditSanitaryModal ────────────────────────────────────────────────────────
+
+export function EditSanitaryModal({
+  open, onClose, procedure, onUpdated,
+}: { open: boolean; onClose: () => void; procedure: SanitaryProcedure; onUpdated: (p: SanitaryProcedure) => void }) {
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<SanitaryValues>({
+    resolver: zodResolver(sanitarySchema),
+    defaultValues: {
+      procedure_type:   procedure.procedure_type,
+      performed_date:   procedure.performed_date,
+      next_due_date:    procedure.next_due_date ?? '',
+      description:      procedure.description ?? '',
+      microchip_number: procedure.microchip_number ?? '',
+    },
+  })
+  const procedureType = watch('procedure_type')
+
+  async function onSubmit(values: SanitaryValues) {
+    const { data, error } = await supabase.from('sanitary_procedures').update({
+      procedure_type:   values.procedure_type,
+      performed_date:   values.performed_date,
+      next_due_date:    values.next_due_date || null,
+      description:      values.description || null,
+      microchip_number: values.procedure_type === 'microchipagem' ? (values.microchip_number || null) : null,
+    }).eq('id', procedure.id).select().single()
+    if (error) { toast.error('Erro: ' + error.message); return }
+    toast.success('Procedimento atualizado!')
+    onUpdated(data as SanitaryProcedure); onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Editar procedimento sanitário</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Tipo *</Label>
+            <Select defaultValue={procedure.procedure_type} onValueChange={(v) => setValue('procedure_type', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(SANITARY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.procedure_type && <p className="text-red-500 text-xs">{errors.procedure_type.message}</p>}
+          </div>
+          {procedureType === 'microchipagem' && (
+            <div className="space-y-1.5">
+              <Label>Número do microchip</Label>
+              <Input placeholder="Ex: 985112345678901" {...register('microchip_number')} />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Realizado em *</Label><Input type="date" {...register('performed_date')} />
+              {errors.performed_date && <p className="text-red-500 text-xs">{errors.performed_date.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Próxima aplicação</Label><Input type="date" {...register('next_due_date')} /></div>
+          </div>
+          <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} {...register('description')} /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── EditMedicalRecordModal ───────────────────────────────────────────────────
+
+export function EditMedicalRecordModal({
+  open, onClose, record, clinics, onUpdated, onClinicCreated,
+}: {
+  open: boolean; onClose: () => void; record: MedicalRecord
+  clinics: Clinic[]; onUpdated: (r: MedicalRecord) => void; onClinicCreated: (c: Clinic) => void
+}) {
+  const [showNewClinic, setShowNewClinic] = useState(false)
+  const existingClinicId = (record as any).clinic?.id ?? ''
+  const existingExams    = ((record as any).exams        ?? []) as any[]
+  const existingMeds     = ((record as any).medications  ?? []) as any[]
+
+  const { register, handleSubmit, setValue, control, formState: { errors, isSubmitting } } = useForm<MedicalValues>({
+    resolver: zodResolver(medicalSchema),
+    defaultValues: {
+      visit_date:      record.visit_date,
+      visit_type:      record.visit_type,
+      vet_name:        record.vet_name ?? '',
+      clinic_id:       existingClinicId,
+      description:     record.description,
+      follow_up_notes: record.follow_up_notes ?? '',
+      follow_up_date:  record.follow_up_date ?? '',
+      exams: existingExams.map((e: any) => ({
+        exam_name: e.exam_name, result: e.result,
+        result_detail: e.result_detail ?? '', exam_date: e.exam_date ?? '',
+      })),
+      medications: existingMeds.map((m: any) => ({
+        name: m.name, dosage: m.dosage ?? '', frequency: m.frequency ?? '',
+        duration_days: m.duration_days?.toString() ?? '', start_date: m.start_date ?? '', notes: m.notes ?? '',
+      })),
+    },
+  })
+  const { fields: examFields, append: addExam, remove: removeExam } = useFieldArray({ control, name: 'exams' })
+  const { fields: medFields,  append: addMed,  remove: removeMed  } = useFieldArray({ control, name: 'medications' })
+
+  async function onSubmit(values: MedicalValues) {
+    let finalClinicId: string | null = (!values.clinic_id || values.clinic_id === 'none' || values.clinic_id === 'new') ? null : values.clinic_id
+    if (values.clinic_id === 'new' && values.new_clinic_name) {
+      const { data: clinic, error: cErr } = await supabase.from('clinics').insert({
+        name: values.new_clinic_name, phone: values.new_clinic_phone || null,
+        address: values.new_clinic_address || null, contact_vet: values.new_clinic_vet || null,
+      }).select().single()
+      if (cErr) { toast.error('Erro ao criar clínica: ' + cErr.message); return }
+      finalClinicId = clinic.id; onClinicCreated(clinic as Clinic)
+    }
+    const { data: updated, error: rErr } = await supabase.from('medical_records').update({
+      clinic_id: finalClinicId, visit_date: values.visit_date, visit_type: values.visit_type,
+      vet_name: values.vet_name || null, description: values.description,
+      follow_up_notes: values.follow_up_notes || null, follow_up_date: values.follow_up_date || null,
+    }).eq('id', record.id).select('*, clinic:clinics(id,name)').single()
+    if (rErr) { toast.error('Erro: ' + rErr.message); return }
+
+    // Replace exams
+    await supabase.from('exams').delete().eq('medical_record_id', record.id)
+    let insertedExams: any[] = []
+    if (values.exams.length > 0) {
+      const { data: ed } = await supabase.from('exams').insert(values.exams.map(e => ({
+        animal_id: record.animal_id, medical_record_id: record.id, exam_name: e.exam_name,
+        result: e.result || 'aguardando', result_detail: e.result_detail || null, exam_date: e.exam_date || null,
+      }))).select()
+      insertedExams = ed ?? []
+    }
+
+    // Replace medications
+    await supabase.from('medications').delete().eq('medical_record_id', record.id)
+    let insertedMeds: any[] = []
+    if (values.medications.length > 0) {
+      const { data: md } = await supabase.from('medications').insert(values.medications.map(m => ({
+        animal_id: record.animal_id, medical_record_id: record.id, name: m.name, dosage: m.dosage || null,
+        frequency: m.frequency || null, duration_days: m.duration_days ? parseInt(m.duration_days) : null,
+        start_date: m.start_date || null, notes: m.notes || null,
+      }))).select()
+      insertedMeds = md ?? []
+    }
+
+    toast.success('Atendimento atualizado!')
+    onUpdated({ ...updated, exams: insertedExams, medications: insertedMeds } as MedicalRecord)
+    setShowNewClinic(false); onClose()
+  }
+
+  function handleClose() { setShowNewClinic(false); onClose() }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Editar atendimento médico</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 py-2">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label>Data *</Label><Input type="date" {...register('visit_date')} />
+              {errors.visit_date && <p className="text-red-500 text-xs">{errors.visit_date.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo *</Label>
+              <Select defaultValue={record.visit_type} onValueChange={(v) => setValue('visit_type', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(VISIT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              </Select>
+              {errors.visit_type && <p className="text-red-500 text-xs">{errors.visit_type.message}</p>}
+            </div>
+            <div className="space-y-1.5"><Label>Veterinário</Label><Input placeholder="Nome" {...register('vet_name')} /></div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Clínica</Label>
+            <Select defaultValue={existingClinicId || 'none'} onValueChange={(v) => { setValue('clinic_id', v); setShowNewClinic(v === 'new') }}>
+              <SelectTrigger><SelectValue placeholder="Selecionar clínica..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem clínica</SelectItem>
+                {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                <SelectItem value="new"><span className="flex items-center gap-2 text-brand-600"><Plus size={13} />Nova clínica</span></SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {showNewClinic && (
+            <div className="border border-brand-200 rounded-lg p-4 space-y-3 bg-brand-50/40">
+              <p className="text-sm font-medium text-stone-700">Nova clínica</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label>Nome *</Label><Input {...register('new_clinic_name')} /></div>
+                <div className="space-y-1.5"><Label>Telefone</Label><Input {...register('new_clinic_phone')} /></div>
+                <div className="space-y-1.5"><Label>Veterinário responsável</Label><Input {...register('new_clinic_vet')} /></div>
+                <div className="space-y-1.5"><Label>Endereço</Label><Input {...register('new_clinic_address')} /></div>
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Descrição / Motivo *</Label><Textarea rows={2} {...register('description')} />
+            {errors.description && <p className="text-red-500 text-xs">{errors.description.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><Label>Retorno em</Label><Input type="date" {...register('follow_up_date')} /></div>
+            <div className="space-y-1.5"><Label>Obs. de retorno</Label><Input {...register('follow_up_notes')} /></div>
+          </div>
+          {/* Exams */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Exames</Label>
+              <Button type="button" variant="outline" size="sm"
+                onClick={() => addExam({ exam_name: '', result: 'aguardando', result_detail: '', exam_date: '' })}>
+                <Plus size={13} className="mr-1" />Adicionar exame
+              </Button>
+            </div>
+            {examFields.map((field, i) => (
+              <div key={field.id} className="border border-stone-100 rounded-lg p-3 bg-stone-50 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Nome do exame *</Label>
+                    <Input className="h-8 text-sm" {...register(`exams.${i}.exam_name`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Resultado</Label>
+                    <Select defaultValue={field.result || 'aguardando'} onValueChange={(v) => setValue(`exams.${i}.result`, v)}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(EXAM_RESULT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Detalhe do resultado</Label>
+                    <Input className="h-8 text-sm" placeholder="Ex: valor, observação" {...register(`exams.${i}.result_detail`)} /></div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1"><Label className="text-xs">Data do exame</Label>
+                      <Input type="date" className="h-8 text-sm" {...register(`exams.${i}.exam_date`)} /></div>
+                    <Button type="button" variant="ghost" size="icon"
+                      className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0"
+                      onClick={() => removeExam(i)}><Trash2 size={13} /></Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Medications */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Medicamentos</Label>
+              <Button type="button" variant="outline" size="sm"
+                onClick={() => addMed({ name: '', dosage: '', frequency: '', duration_days: '', start_date: '', notes: '' })}>
+                <Plus size={13} className="mr-1" />Adicionar medicamento
+              </Button>
+            </div>
+            {medFields.map((field, i) => (
+              <div key={field.id} className="border border-stone-100 rounded-lg p-3 bg-stone-50 space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Nome *</Label><Input className="h-8 text-sm" {...register(`medications.${i}.name`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Dose</Label><Input className="h-8 text-sm" placeholder="Ex: 10mg" {...register(`medications.${i}.dosage`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Frequência</Label><Input className="h-8 text-sm" placeholder="Ex: 2x/dia" {...register(`medications.${i}.frequency`)} /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Duração (dias)</Label><Input type="number" className="h-8 text-sm" {...register(`medications.${i}.duration_days`)} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Início</Label><Input type="date" className="h-8 text-sm" {...register(`medications.${i}.start_date`)} /></div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1"><Label className="text-xs">Obs.</Label><Input className="h-8 text-sm" {...register(`medications.${i}.notes`)} /></div>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0" onClick={() => removeMed(i)}><Trash2 size={13} /></Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-700" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 size={14} className="animate-spin mr-2" />}Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Archive animal modal ─────────────────────────────────────────────────────
 
 const ARCHIVE_REASONS = [
