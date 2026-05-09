@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import type {
   Animal, AnimalRescue, SanitaryProcedure, MedicalRecord,
   AnimalCustody, Custodian, Clinic, AnimalPhoto,
@@ -186,6 +187,22 @@ export default function AnimalDetail() {
 
   function pushAuditEvent(event: AuditEvent) {
     setAuditLog(prev => [event, ...prev].sort((a, b) => b.timestamp.localeCompare(a.timestamp)))
+  }
+
+  async function deleteSanitary(p: SanitaryProcedure) {
+    if (!confirm(`Remover "${SANITARY_LABELS[p.procedure_type] ?? p.procedure_type}" (${fmt(p.performed_date)})?`)) return
+    const { error } = await supabase.from('sanitary_procedures').delete().eq('id', p.id)
+    if (error) { toast.error('Erro: ' + error.message); return }
+    setSanitary(prev => prev.filter(s => s.id !== p.id))
+  }
+
+  async function deleteRecord(r: MedicalRecord) {
+    if (!confirm(`Remover atendimento de ${fmt(r.visit_date)}? Exames e medicamentos associados também serão removidos.`)) return
+    await supabase.from('exams').delete().eq('medical_record_id', r.id)
+    await supabase.from('medications').delete().eq('medical_record_id', r.id)
+    const { error } = await supabase.from('medical_records').delete().eq('id', r.id)
+    if (error) { toast.error('Erro: ' + error.message); return }
+    setRecords(prev => prev.filter(x => x.id !== r.id))
   }
 
   if (loading) return (
@@ -462,10 +479,16 @@ export default function AnimalDetail() {
                         <td className="px-3 py-2.5 text-stone-500">{fmt(p.next_due_date)}</td>
                         <td className="px-3 py-2.5 text-stone-400 text-xs">{p.description ?? '—'}</td>
                         <td className="px-3 py-2.5">
-                          <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-stone-700"
-                            onClick={() => setEditingSanitary(p)}>
-                            <Pencil size={12} />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-stone-700"
+                              onClick={() => setEditingSanitary(p)}>
+                              <Pencil size={12} />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-red-600"
+                              onClick={() => deleteSanitary(p)}>
+                              <Trash2 size={12} />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -498,11 +521,15 @@ export default function AnimalDetail() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {r.vet_name && <span className="text-xs text-stone-400">Dr(a). {r.vet_name}</span>}
+                        <div className="flex items-center gap-1">
+                          {r.vet_name && <span className="text-xs text-stone-400 mr-1">Dr(a). {r.vet_name}</span>}
                           <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-stone-700"
                             onClick={() => setEditingRecord(r)}>
                             <Pencil size={12} />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 text-stone-400 hover:text-red-600"
+                            onClick={() => deleteRecord(r)}>
+                            <Trash2 size={12} />
                           </Button>
                         </div>
                       </div>
