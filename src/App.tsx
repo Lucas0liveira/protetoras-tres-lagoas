@@ -13,6 +13,7 @@ import Interessados from '@/pages/dashboard/Interessados'
 import Settings from '@/pages/dashboard/Settings'
 import Pharmacy from '@/pages/dashboard/Pharmacy'
 import AlertsPage from '@/pages/dashboard/Alerts'
+import AlertasUrgentesPage from '@/pages/dashboard/AlertasUrgentes'
 import Financeiro from '@/pages/dashboard/Financeiro'
 import CollectionPoints from '@/pages/dashboard/CollectionPoints'
 import Tarefas from '@/pages/dashboard/Tarefas'
@@ -47,7 +48,8 @@ export default function App() {
         <Route path="interessados"    element={<Interessados />} />
         <Route path="voluntarios"     element={<Navigate to="/dashboard/interessados" replace />} />
         <Route path="farmacia"        element={<Pharmacy />} />
-        <Route path="alertas"         element={<AlertsPage />} />
+        <Route path="alertas"           element={<AlertsPage />} />
+        <Route path="alertas-urgentes" element={<AlertasUrgentesPage />} />
         <Route path="financeiro"      element={<Financeiro />} />
         <Route path="pontos"          element={<CollectionPoints />} />
         <Route path="tarefas"         element={<Tarefas />} />

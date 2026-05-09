@@ -1,229 +1,248 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Megaphone, ToggleLeft, ToggleRight } from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { toast } from 'sonner'
-
+import { Link } from 'react-router-dom'
+import { AlertTriangle, Bell, Clock, ExternalLink, Pill } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { Alert } from '@/types/database'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
 
-const alertSchema = z.object({
-  title:       z.string().min(1, 'Título obrigatório'),
-  body:        z.string().min(1, 'Mensagem obrigatória'),
-  link_url:    z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
-  link_label:  z.string().optional(),
-  image_url:   z.url({ error: 'URL inválida' }).or(z.literal('')).optional(),
-})
-type AlertValues = z.infer<typeof alertSchema>
+interface PharmacyAlert {
+  id: string
+  name: string
+  expiration_date: string
+  quantity: number
+  unit: string
+  daysUntil: number
+}
 
-function AlertModal({
-  open, onClose, alert, onSaved,
-}: {
-  open: boolean
-  onClose: () => void
-  alert: Alert | null
-  onSaved: (a: Alert) => void
-}) {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<AlertValues>({
-    resolver: zodResolver(alertSchema),
-  })
+interface FollowUpAlert {
+  id: string
+  animal_id: string
+  animal_name: string
+  visit_date: string
+  visit_type: string
+  follow_up_date: string
+  follow_up_notes: string | null
+  daysUntil: number
+}
 
-  useEffect(() => {
-    if (open) {
-      reset({
-        title:      alert?.title ?? '',
-        body:       alert?.body ?? '',
-        link_url:   alert?.link_url ?? '',
-        link_label: alert?.link_label ?? '',
-        image_url:  alert?.image_url ?? '',
-      })
-    }
-  }, [open, alert, reset])
+const VISIT_TYPE_LABELS: Record<string, string> = {
+  rotina: 'Rotina', emergencia: 'Emergência',
+  retorno: 'Retorno', cirurgia: 'Cirurgia', outro: 'Outro',
+}
 
-  async function onSubmit(values: AlertValues) {
-    const payload = {
-      title:      values.title,
-      body:       values.body,
-      link_url:   values.link_url || null,
-      link_label: values.link_label || null,
-      image_url:  values.image_url || null,
-    }
-    if (alert) {
-      const { data, error } = await supabase.from('alerts').update(payload).eq('id', alert.id).select().single()
-      if (error) { toast.error('Erro ao salvar'); return }
-      toast.success('Alerta atualizado')
-      onSaved(data as Alert)
-    } else {
-      const { data, error } = await supabase.from('alerts').insert({ ...payload, is_active: false }).select().single()
-      if (error) { toast.error('Erro ao salvar'); return }
-      toast.success('Alerta criado')
-      onSaved(data as Alert)
-    }
-    onClose()
-  }
+function fmt(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR')
+}
 
-  return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{alert ? 'Editar alerta' : 'Novo alerta'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-1">
-            <Label>Título *</Label>
-            <Input {...register('title')} placeholder="Ex: Urgente — cirurgia necessária" />
-            {errors.title && <p className="text-xs text-red-500">{errors.title.message}</p>}
-          </div>
-          <div className="space-y-1">
-            <Label>Mensagem *</Label>
-            <Textarea {...register('body')} placeholder="Descreva a situação urgente…" rows={4} />
-            {errors.body && <p className="text-xs text-red-500">{errors.body.message}</p>}
-          </div>
-          <div className="space-y-1">
-            <Label>URL da imagem</Label>
-            <Input {...register('image_url')} placeholder="https://…" />
-            {errors.image_url && <p className="text-xs text-red-500">{errors.image_url.message}</p>}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Texto do link</Label>
-              <Input {...register('link_label')} placeholder="Ex: Doe agora" />
-            </div>
-            <div className="space-y-1">
-              <Label>URL do link</Label>
-              <Input {...register('link_url')} placeholder="https://…" />
-              {errors.link_url && <p className="text-xs text-red-500">{errors.link_url.message}</p>}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+function absDays(n: number) {
+  const abs = Math.abs(n)
+  return abs === 0 ? 'hoje' : abs === 1 ? '1 dia' : `${abs} dias`
+}
+
+export async function loadAlertCount(): Promise<number> {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const soon = new Date(today)
+  soon.setDate(soon.getDate() + 30)
+  const soonStr = soon.toISOString().split('T')[0]
+
+  const [{ count: pharma }, { count: followUps }] = await Promise.all([
+    supabase
+      .from('pharmacy_items')
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .not('expiration_date', 'is', null)
+      .lte('expiration_date', soonStr),
+    supabase
+      .from('medical_records')
+      .select('id', { count: 'exact', head: true })
+      .not('follow_up_date', 'is', null)
+      .lte('follow_up_date', soonStr),
+  ])
+  return (pharma ?? 0) + (followUps ?? 0)
 }
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [pharmacyAlerts,  setPharmacyAlerts]  = useState<PharmacyAlert[]>([])
+  const [overdueFollowUps, setOverdueFollowUps] = useState<FollowUpAlert[]>([])
+  const [upcomingFollowUps, setUpcomingFollowUps] = useState<FollowUpAlert[]>([])
   const [loading, setLoading] = useState(true)
-  const [modalAlert, setModalAlert] = useState<Alert | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => { load() }, [])
 
   async function load() {
-    setLoading(true)
-    const { data } = await supabase.from('alerts').select('*').order('created_at', { ascending: false })
-    setAlerts((data ?? []) as Alert[])
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const soon = new Date(today)
+    soon.setDate(soon.getDate() + 30)
+    const soonStr = soon.toISOString().split('T')[0]
+
+    const [{ data: pharmaData }, { data: followUpData }] = await Promise.all([
+      supabase
+        .from('pharmacy_items')
+        .select('id, name, expiration_date, quantity, unit')
+        .is('deleted_at', null)
+        .not('expiration_date', 'is', null)
+        .lte('expiration_date', soonStr)
+        .order('expiration_date', { ascending: true }),
+      supabase
+        .from('medical_records')
+        .select('id, animal_id, visit_date, visit_type, follow_up_date, follow_up_notes, animal:animals(id, name, deleted_at)')
+        .not('follow_up_date', 'is', null)
+        .lte('follow_up_date', soonStr)
+        .order('follow_up_date', { ascending: true }),
+    ])
+
+    const ms = 1000 * 60 * 60 * 24
+
+    const pa: PharmacyAlert[] = (pharmaData ?? []).map((item: any) => ({
+      id:              item.id,
+      name:            item.name,
+      expiration_date: item.expiration_date,
+      quantity:        item.quantity,
+      unit:            item.unit,
+      daysUntil:       Math.round((new Date(item.expiration_date + 'T00:00:00').getTime() - today.getTime()) / ms),
+    }))
+    setPharmacyAlerts(pa)
+
+    const allFollowUps: FollowUpAlert[] = (followUpData ?? [])
+      .filter((r: any) => r.animal && !(r.animal as any).deleted_at)
+      .map((r: any) => ({
+        id:              r.id,
+        animal_id:       r.animal_id,
+        animal_name:     (r.animal as any)?.name ?? '—',
+        visit_date:      r.visit_date,
+        visit_type:      r.visit_type,
+        follow_up_date:  r.follow_up_date,
+        follow_up_notes: r.follow_up_notes,
+        daysUntil:       Math.round((new Date(r.follow_up_date + 'T00:00:00').getTime() - today.getTime()) / ms),
+      }))
+
+    setOverdueFollowUps(allFollowUps.filter(f => f.daysUntil < 0).sort((a, b) => a.daysUntil - b.daysUntil))
+    setUpcomingFollowUps(allFollowUps.filter(f => f.daysUntil >= 0))
     setLoading(false)
   }
 
-  async function toggleActive(alert: Alert) {
-    const newVal = !alert.is_active
-    const { error } = await supabase.from('alerts').update({ is_active: newVal }).eq('id', alert.id)
-    if (error) { toast.error('Erro ao atualizar'); return }
-    setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, is_active: newVal } : a))
-    toast.success(newVal ? 'Alerta ativado — visível no site' : 'Alerta desativado')
-  }
-
-  async function handleDelete(alert: Alert) {
-    if (!confirm(`Excluir alerta "${alert.title}"?`)) return
-    await supabase.from('alerts').delete().eq('id', alert.id)
-    setAlerts(prev => prev.filter(a => a.id !== alert.id))
-    toast.success('Alerta excluído')
-  }
-
-  function handleSaved(saved: Alert) {
-    setAlerts(prev => {
-      const idx = prev.findIndex(a => a.id === saved.id)
-      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next }
-      return [saved, ...prev]
-    })
-  }
+  const total = pharmacyAlerts.length + overdueFollowUps.length + upcomingFollowUps.length
 
   return (
-    <div className="p-4 sm:p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-8 max-w-3xl">
+      <div className="flex items-center gap-3 mb-6">
+        <Bell size={20} className="text-brand-600" />
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Alertas Urgentes</h1>
-          <p className="text-sm text-stone-500 mt-1">Alertas ativos aparecem como modal na página inicial do site</p>
+          <h1 className="text-2xl font-bold text-stone-900">Alertas internos</h1>
+          <p className="text-sm text-stone-500 mt-0.5">
+            {loading ? 'Carregando…' : total === 0 ? 'Nenhum alerta no momento.' : `${total} alerta${total > 1 ? 's' : ''} pendente${total > 1 ? 's' : ''}`}
+          </p>
         </div>
-        <Button onClick={() => { setModalAlert(null); setModalOpen(true) }} className="gap-2">
-          <Plus size={16} />Novo alerta
-        </Button>
-      </div>
-
-      <div className="mb-5 bg-stone-50 border border-stone-200 rounded-xl p-4 text-sm text-stone-600">
-        <p><span className="font-medium">Como funciona:</span> Ative um alerta para que ele apareça automaticamente como um modal para visitantes na página inicial. Apenas o alerta mais recente ativado é exibido por vez.</p>
       </div>
 
       {loading ? (
         <div className="text-center py-16 text-stone-400">Carregando…</div>
-      ) : alerts.length === 0 ? (
-        <div className="text-center py-16 text-stone-400">
-          <Megaphone size={32} className="mx-auto mb-3 opacity-30" />
-          <p>Nenhum alerta cadastrado.</p>
+      ) : total === 0 ? (
+        <div className="text-center py-16 text-stone-300">
+          <Bell size={40} className="mx-auto mb-3 opacity-40" />
+          <p className="text-stone-400">Tudo em dia. Nenhum alerta no momento.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {alerts.map(alert => (
-            <div key={alert.id} className="bg-white rounded-xl border border-stone-200 p-5 flex items-start gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-stone-800">{alert.title}</h3>
-                  <Badge variant="outline" className={alert.is_active
-                    ? 'bg-brand-50 text-brand-700 border-brand-200'
-                    : 'bg-stone-50 text-stone-500 border-stone-200'}>
-                    {alert.is_active ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-                <p className="text-sm text-stone-600 line-clamp-2">{alert.body}</p>
-                {(alert.link_url || alert.image_url) && (
-                  <p className="text-xs text-stone-400 mt-1">
-                    {alert.link_url && <span>Link: {alert.link_url}</span>}
-                    {alert.image_url && <span className="ml-3">Imagem: configurada</span>}
-                  </p>
-                )}
+        <div className="space-y-8">
+
+          {/* ── Medicamentos ─────────────────────────────────────── */}
+          {pharmacyAlerts.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Pill size={14} className="text-red-500" />
+                <h2 className="font-semibold text-stone-700">Medicamentos com validade próxima ou vencida</h2>
+                <Badge className="bg-red-100 text-red-700 border-red-200 border text-xs">{pharmacyAlerts.length}</Badge>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className={`h-8 w-8 ${alert.is_active ? 'text-brand-600' : 'text-stone-400'}`}
-                  title={alert.is_active ? 'Desativar' : 'Ativar'}
-                  onClick={() => toggleActive(alert)}>
-                  {alert.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-400 hover:text-stone-700"
-                  onClick={() => { setModalAlert(alert); setModalOpen(true) }}>
-                  <Pencil size={14} />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-400 hover:text-red-600"
-                  onClick={() => handleDelete(alert)}>
-                  <Trash2 size={14} />
-                </Button>
+              <div className="space-y-2">
+                {pharmacyAlerts.map(a => (
+                  <div key={a.id} className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                    <AlertTriangle size={15} className="text-red-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-red-800">{a.name}</p>
+                      <p className="text-xs text-red-600 mt-0.5">
+                        {a.daysUntil < 0
+                          ? `Vencido há ${absDays(a.daysUntil)} · ${fmt(a.expiration_date)}`
+                          : a.daysUntil === 0
+                            ? `Vence hoje · ${fmt(a.expiration_date)}`
+                            : `Vence em ${absDays(a.daysUntil)} · ${fmt(a.expiration_date)}`}
+                      </p>
+                    </div>
+                    <div className="text-xs text-red-500 text-right shrink-0">
+                      <p>{a.quantity} {a.unit}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
+              <Link to="/dashboard/farmacia" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline mt-2">
+                <ExternalLink size={11} />Ver farmácia
+              </Link>
+            </section>
+          )}
+
+          {/* ── Retornos atrasados ────────────────────────────────── */}
+          {overdueFollowUps.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock size={14} className="text-orange-500" />
+                <h2 className="font-semibold text-stone-700">Retornos atrasados</h2>
+                <Badge className="bg-orange-100 text-orange-700 border-orange-200 border text-xs">{overdueFollowUps.length}</Badge>
+              </div>
+              <div className="space-y-2">
+                {overdueFollowUps.map(f => (
+                  <Link key={f.id} to={`/dashboard/animais/${f.animal_id}`}
+                    className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 hover:bg-orange-100 transition-colors">
+                    <AlertTriangle size={15} className="text-orange-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-orange-800">{f.animal_name}</p>
+                      <p className="text-xs text-orange-600 mt-0.5">
+                        Retorno era {fmt(f.follow_up_date)} · atrasado há {absDays(f.daysUntil)}
+                        {f.follow_up_notes && ` · ${f.follow_up_notes}`}
+                      </p>
+                      <p className="text-xs text-orange-400 mt-0.5">
+                        Atendimento: {fmt(f.visit_date)} · {VISIT_TYPE_LABELS[f.visit_type] ?? f.visit_type}
+                      </p>
+                    </div>
+                    <ExternalLink size={12} className="text-orange-400 shrink-0 mt-0.5" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Retornos próximos ─────────────────────────────────── */}
+          {upcomingFollowUps.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock size={14} className="text-yellow-500" />
+                <h2 className="font-semibold text-stone-700">Retornos próximos</h2>
+                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 border text-xs">{upcomingFollowUps.length}</Badge>
+              </div>
+              <div className="space-y-2">
+                {upcomingFollowUps.map(f => (
+                  <Link key={f.id} to={`/dashboard/animais/${f.animal_id}`}
+                    className="flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 hover:bg-yellow-100 transition-colors">
+                    <Clock size={15} className="text-yellow-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-yellow-800">{f.animal_name}</p>
+                      <p className="text-xs text-yellow-600 mt-0.5">
+                        {f.daysUntil === 0 ? 'Retorno hoje' : `Retorno em ${absDays(f.daysUntil)}`}
+                        {' · '}{fmt(f.follow_up_date)}
+                        {f.follow_up_notes && ` · ${f.follow_up_notes}`}
+                      </p>
+                      <p className="text-xs text-yellow-400 mt-0.5">
+                        Atendimento: {fmt(f.visit_date)} · {VISIT_TYPE_LABELS[f.visit_type] ?? f.visit_type}
+                      </p>
+                    </div>
+                    <ExternalLink size={12} className="text-yellow-400 shrink-0 mt-0.5" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
         </div>
       )}
-
-      <AlertModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        alert={modalAlert}
-        onSaved={handleSaved}
-      />
     </div>
   )
 }

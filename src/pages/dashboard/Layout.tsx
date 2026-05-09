@@ -1,9 +1,10 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { PawPrint, Dog, HandHeart, Building2, Users, ClipboardList, CheckSquare, LogOut, Settings, Pill, AlertTriangle, X, Megaphone, Receipt, Menu, MapPin } from 'lucide-react'
+import { PawPrint, Dog, HandHeart, Building2, Users, ClipboardList, CheckSquare, LogOut, Settings, Pill, AlertTriangle, X, Bell, Receipt, Menu, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { loadAlertCount } from './Alerts'
 
 const NAV = [
   { to: '/dashboard/animais',       label: 'Animais',           icon: Dog },
@@ -13,12 +14,12 @@ const NAV = [
   { to: '/dashboard/equipe',         label: 'Equipe',               icon: Users },
   { to: '/dashboard/interessados',   label: 'Interessados',         icon: ClipboardList },
   { to: '/dashboard/farmacia',      label: 'Farmácia',          icon: Pill },
-  { to: '/dashboard/alertas',       label: 'Alertas Urgentes',  icon: Megaphone },
+  { to: '/dashboard/alertas',       label: 'Alertas',           icon: Bell },
   { to: '/dashboard/financeiro',    label: 'Financeiro',        icon: Receipt },
   { to: '/dashboard/pontos',        label: 'Pontos de Coleta',  icon: MapPin },
 ]
 
-function Sidebar({ onClose }: { onClose?: () => void }) {
+function Sidebar({ onClose, alertCount }: { onClose?: () => void; alertCount: number }) {
   const navigate = useNavigate()
 
   async function handleLogout() {
@@ -56,6 +57,11 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
                 : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
             )}>
             <Icon size={16} />{label}
+            {to === '/dashboard/alertas' && alertCount > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                {alertCount > 99 ? '99+' : alertCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -81,7 +87,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
 export default function DashboardLayout() {
   const location = useLocation()
-  const [expiringCount, setExpiringCount] = useState(0)
+  const [expiringCount,  setExpiringCount]  = useState(0)
+  const [alertCount,     setAlertCount]     = useState(0)
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -100,13 +107,14 @@ export default function DashboardLayout() {
       setExpiringCount(count ?? 0)
     }
     checkExpiring()
+    loadAlertCount().then(setAlertCount)
   }, [])
 
   return (
     <div className="flex h-screen bg-stone-50 overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-56 border-r border-stone-200 shrink-0 flex-col">
-        <Sidebar />
+        <Sidebar alertCount={alertCount} />
       </aside>
 
       {/* Mobile drawer overlay */}
@@ -114,7 +122,7 @@ export default function DashboardLayout() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-64 z-50 shadow-xl">
-            <Sidebar onClose={() => setMobileOpen(false)} />
+            <Sidebar alertCount={alertCount} onClose={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}
