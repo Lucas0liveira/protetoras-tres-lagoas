@@ -586,7 +586,8 @@ export default function AnimalDetail() {
           setCustody(prev => prev.map(x => x.is_active && x.id !== c.id ? { ...x, is_active: false, ended_at: c.started_at } : x).concat([c]).sort((a, b) => b.started_at.localeCompare(a.started_at)))
           pushAuditEvent({ id: `c-new-${c.id}`, timestamp: c.created_at, actor: 'Você', description: `${CUSTODY_TYPE_LABELS[c.custody_type]} — ${(c as any).custodian?.full_name ?? ''}`, icon: 'home' })
         }}
-        onCustodianCreated={(c) => setCustodians(prev => [...prev, c])} />
+        onCustodianCreated={(c) => setCustodians(prev => [...prev, c])}
+        onAnimalStatusChanged={(status) => setAnimal(prev => prev ? { ...prev, status: status as any } : prev)} />
 
       {/* Custody-specific action modals */}
       {custodyAction?.type === 'edit' && (

@@ -667,11 +667,12 @@ const custodySchema = z.object({
 type CustodyValues = z.infer<typeof custodySchema>
 
 export function AddCustodyModal({
-  open, onClose, animalId, activeCustodyId, custodians, onAdded, onCustodianCreated,
+  open, onClose, animalId, activeCustodyId, custodians, onAdded, onCustodianCreated, onAnimalStatusChanged,
 }: {
   open: boolean; onClose: () => void; animalId: string; activeCustodyId: string | null
   custodians: Custodian[]; onAdded: (c: AnimalCustody) => void
   onCustodianCreated: (c: Custodian) => void
+  onAnimalStatusChanged?: (status: string) => void
 }) {
   const [showNewCustodian, setShowNewCustodian] = useState(false)
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<CustodyValues>({
@@ -702,6 +703,10 @@ export function AddCustodyModal({
       started_at: values.started_at, termo_date: values.termo_date || null, is_active: true,
     }).select('*, custodian:custodians(id,full_name,phone,email,cpf,address_street,address_neighborhood,address_city,notes)').single()
     if (error) { toast.error('Erro: ' + error.message); return }
+    if (values.custody_type === 'adocao') {
+      await supabase.from('animals').update({ status: 'adotado' }).eq('id', animalId)
+      onAnimalStatusChanged?.('adotado')
+    }
     toast.success('Custódia registrada!')
     onAdded(data as AnimalCustody)
     reset(); setShowNewCustodian(false); onClose()
