@@ -1,6 +1,7 @@
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { useEffect } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 
 // Fix default marker icons broken by bundlers
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -24,12 +25,25 @@ interface AnimalMapProps {
   points: CollectionPointPin[]
 }
 
+function FitBounds({ points }: { points: CollectionPointPin[] }) {
+  const map = useMap()
+  useEffect(() => {
+    if (points.length === 1) {
+      map.setView([points[0].lat, points[0].lng], 15)
+    } else if (points.length > 1) {
+      const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]))
+      map.fitBounds(bounds, { padding: [50, 50] })
+    }
+  }, [map, points])
+  return null
+}
+
 export default function AnimalMap({ points }: AnimalMapProps) {
-  const center: [number, number] = [-20.7514, -51.7008]
+  const defaultCenter: [number, number] = [-20.7514, -51.7008]
 
   return (
     <MapContainer
-      center={center}
+      center={defaultCenter}
       zoom={13}
       className="h-[400px] md:h-[360px] rounded-2xl z-0"
       style={{ width: '100%' }}
@@ -38,6 +52,7 @@ export default function AnimalMap({ points }: AnimalMapProps) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <FitBounds points={points} />
       {points.map(pt => (
         <Marker key={pt.id} position={[pt.lat, pt.lng]}>
           <Popup>

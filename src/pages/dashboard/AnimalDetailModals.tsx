@@ -708,6 +708,9 @@ export function AddCustodyModal({
     if (values.custody_type === 'adocao') {
       await supabase.from('animals').update({ status: 'adotado' }).eq('id', animalId)
       onAnimalStatusChanged?.('adotado')
+    } else if (values.custody_type === 'lar_temporario') {
+      await supabase.from('animals').update({ status: 'lar_temporario' }).eq('id', animalId)
+      onAnimalStatusChanged?.('lar_temporario')
     }
     toast.success('Custódia registrada!')
     onAdded(data as AnimalCustody)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Bell, Clock, ExternalLink, Pill } from 'lucide-react'
+import { AlertTriangle, Bell, CheckCircle2, Clock, ExternalLink, Pill } from 'lucide-react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 
@@ -122,6 +123,14 @@ export default function AlertsPage() {
     setLoading(false)
   }
 
+  async function confirmFollowUp(id: string) {
+    const { error } = await supabase.from('medical_records').update({ follow_up_date: null }).eq('id', id)
+    if (error) { toast.error('Erro: ' + error.message); return }
+    toast.success('Retorno confirmado.')
+    setOverdueFollowUps(prev => prev.filter(f => f.id !== id))
+    setUpcomingFollowUps(prev => prev.filter(f => f.id !== id))
+  }
+
   const total = pharmacyAlerts.length + overdueFollowUps.length + upcomingFollowUps.length
 
   return (
@@ -190,10 +199,9 @@ export default function AlertsPage() {
               </div>
               <div className="space-y-2">
                 {overdueFollowUps.map(f => (
-                  <Link key={f.id} to={`/dashboard/animais/${f.animal_id}`}
-                    className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 hover:bg-orange-100 transition-colors">
+                  <div key={f.id} className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
                     <AlertTriangle size={15} className="text-orange-500 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
+                    <Link to={`/dashboard/animais/${f.animal_id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                       <p className="text-sm font-semibold text-orange-800">{f.animal_name}</p>
                       <p className="text-xs text-orange-600 mt-0.5">
                         Retorno era {fmt(f.follow_up_date)} · atrasado há {absDays(f.daysUntil)}
@@ -202,9 +210,17 @@ export default function AlertsPage() {
                       <p className="text-xs text-orange-400 mt-0.5">
                         Atendimento: {fmt(f.visit_date)} · {VISIT_TYPE_LABELS[f.visit_type] ?? f.visit_type}
                       </p>
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link to={`/dashboard/animais/${f.animal_id}`}><ExternalLink size={12} className="text-orange-400" /></Link>
+                      <button
+                        onClick={() => confirmFollowUp(f.id)}
+                        title="Confirmar retorno realizado"
+                        className="text-orange-400 hover:text-brand-600 transition-colors">
+                        <CheckCircle2 size={16} />
+                      </button>
                     </div>
-                    <ExternalLink size={12} className="text-orange-400 shrink-0 mt-0.5" />
-                  </Link>
+                  </div>
                 ))}
               </div>
             </section>
@@ -220,10 +236,9 @@ export default function AlertsPage() {
               </div>
               <div className="space-y-2">
                 {upcomingFollowUps.map(f => (
-                  <Link key={f.id} to={`/dashboard/animais/${f.animal_id}`}
-                    className="flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 hover:bg-yellow-100 transition-colors">
+                  <div key={f.id} className="flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
                     <Clock size={15} className="text-yellow-500 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
+                    <Link to={`/dashboard/animais/${f.animal_id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                       <p className="text-sm font-semibold text-yellow-800">{f.animal_name}</p>
                       <p className="text-xs text-yellow-600 mt-0.5">
                         {f.daysUntil === 0 ? 'Retorno hoje' : `Retorno em ${absDays(f.daysUntil)}`}
@@ -233,9 +248,17 @@ export default function AlertsPage() {
                       <p className="text-xs text-yellow-400 mt-0.5">
                         Atendimento: {fmt(f.visit_date)} · {VISIT_TYPE_LABELS[f.visit_type] ?? f.visit_type}
                       </p>
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link to={`/dashboard/animais/${f.animal_id}`}><ExternalLink size={12} className="text-yellow-400" /></Link>
+                      <button
+                        onClick={() => confirmFollowUp(f.id)}
+                        title="Confirmar retorno realizado"
+                        className="text-yellow-400 hover:text-brand-600 transition-colors">
+                        <CheckCircle2 size={16} />
+                      </button>
                     </div>
-                    <ExternalLink size={12} className="text-yellow-400 shrink-0 mt-0.5" />
-                  </Link>
+                  </div>
                 ))}
               </div>
             </section>
