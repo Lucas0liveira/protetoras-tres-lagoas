@@ -199,6 +199,8 @@ export function EditAnimalModal({
             <Select defaultValue={animal.status} onValueChange={(v) => setValue('status', v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="adotado">Adotado</SelectItem>
+                <SelectItem value="lar_temporario">Lar temporário</SelectItem>
                 <SelectItem value="pendente_resgate">Pendente resgate</SelectItem>
                 <SelectItem value="resgatado">Resgatado</SelectItem>
                 <SelectItem value="disponivel">Disponível</SelectItem>
