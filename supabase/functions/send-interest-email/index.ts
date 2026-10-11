@@ -15,6 +15,10 @@ const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD') ?? ''
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 const FROM_ADDRESS   = Deno.env.get('FROM_EMAIL') ?? `Protetoras Três Lagoas <${GMAIL_USER}>`
 
+// Organization info shown in the email footer
+const ORG_CNPJ      = Deno.env.get('ORG_CNPJ') ?? ''
+const CONTACT_EMAIL = Deno.env.get('CONTACT_EMAIL') ?? ''
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -150,8 +154,8 @@ function buildHtml(paragraphs: string[]): string {
       <tr>
         <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;">
           <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5;">
-            Associação Protetoras Três Lagoas · CNPJ 29.022.433/0001-20<br>
-            <a href="mailto:protetorastl@gmail.com" style="color:#6b7280;text-decoration:none;">protetorastl@gmail.com</a>
+            Associação Protetoras Três Lagoas · CNPJ ${ORG_CNPJ}<br>
+            <a href="mailto:${CONTACT_EMAIL}" style="color:#6b7280;text-decoration:none;">${CONTACT_EMAIL}</a>
           </p>
         </td>
       </tr>

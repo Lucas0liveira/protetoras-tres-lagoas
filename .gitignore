@@ -26,3 +26,11 @@ docs/
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Supabase CLI local state
+supabase/.temp/

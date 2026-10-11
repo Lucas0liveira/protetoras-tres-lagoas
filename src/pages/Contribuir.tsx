@@ -4,10 +4,10 @@ import { PawPrint, Copy, Check, Mail, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import qrCode from '@/assets/qrcode-pix.png'
 
-const PIX_KEY   = '29.022.433/0001-20'
-const RAW_KEY   = '29022433000120'
-const RECIPIENT = 'Associação Protetoras Três Lagoas'
-const EMAIL     = 'protetorastl@gmail.com'
+const PIX_KEY   = (import.meta.env.VITE_PIX_KEY as string) ?? ''
+const RAW_KEY   = PIX_KEY.replace(/\D/g, '')
+const RECIPIENT = (import.meta.env.VITE_PIX_RECIPIENT as string) ?? ''
+const EMAIL     = (import.meta.env.VITE_CONTACT_EMAIL as string) ?? ''
 
 export default function Contribuir() {
   const [copied, setCopied] = useState(false)
